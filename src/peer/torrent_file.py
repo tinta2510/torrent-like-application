@@ -1,11 +1,14 @@
+""" Class for creating torrent file. """
 import os
-import bencodepy
 import hashlib
 import time
+from typing import List
+import bencodepy
 
-class MetainfoGenerator:
+class TorrentFile:
     """
-    A class to generate metainfo (torrent) files for files or directories, based on the BitTorrent specification.
+    A class to generate metainfo (torrent) files for files or directories, based on the 
+    BitTorrent specification.
 
     Attributes:
         piece_length (int): The size of each file piece in bytes (default is 256KB).
@@ -15,24 +18,16 @@ class MetainfoGenerator:
             Generate concatenated SHA-1 hashes of all file pieces for a given file.
 
         `_generate_file_pieces_for_directory(dir_path)`:
-            Generate SHA-1 hashes for each piece of all files in a directory, treating them as a single stream of data.
+            Generate SHA-1 hashes for each piece of all files in a directory, treating them as a 
+            single stream of data.
 
-        `create_metainfo_file(file_path, trackers, metainfo_dir_path=None)`:
+        `create_torrent_file(file_path, trackers, metainfo_dir_path=None)`:
             Create a metainfo (.torrent) file for a given file or directory, including tracker URLs.
+
+        `read_torrent_file
     """
-    def __init__(self, piece_length = 262144):
-        """
-        Initialize MetainfoGenerator with a piece_length
-        
-        Args:
-            `piece_length` (int): The size of each piece (in byte) (default is 256KB)
-
-        """
-        self.piece_length = piece_length
-        pass
-
-
-    def _generate_file_pieces(self, file_path):
+    @staticmethod
+    def _generate_file_pieces(file_path: str, piece_length: str=262144):
         """
         Generate concatenated SHA-1 hashes of all file pieces.
 
@@ -46,15 +41,16 @@ class MetainfoGenerator:
 
         with open(file_path, 'rb') as f:  # Open the file in binary mode
             while True:
-                piece = f.read(self.piece_length)  # Read a chunk of the file with size 'piece_length'
+                piece = f.read(piece_length) # Read a chunk of the file with size piece_length
                 if not piece:
-                    break  
+                    break
                 sha1 = hashlib.sha1(piece).digest()  # Generate the SHA-1 hash of the chunk
                 pieces.append(sha1)  # Append the binary SHA-1 hash to the pieces list
 
         return b''.join(pieces)  # Concatenate all the SHA-1 hashes and return them as a single byte string
-
-    def _generate_file_pieces_for_directory(self, dir_path):
+    
+    @staticmethod
+    def _generate_file_pieces_for_directory(dir_path: str, piece_length: str = 262144):
         """
         Generate SHA-1 hashes for each piece of all files in a directory.
         Concatenate files together and treat them as a single stream of data.
@@ -74,19 +70,18 @@ class MetainfoGenerator:
             """
             with open(file_path, 'rb') as f:
                 while True:
-                    piece = f.read(self.piece_length)
+                    piece = f.read(piece_length)
                     if not piece:
                         break
                     sha1 = hashlib.sha1(piece).digest()
-                    pieces.append(sha1)
-            
+                    pieces.append(sha1)         
             file_list.append({
                 'length': os.path.getsize(file_path),
                 'path': relative_path
             })
 
         # Traverse the directory and process each file
-        for root, dirs, files in os.walk(dir_path):
+        for root, _, files in os.walk(dir_path):
             for file in files:
                 full_path = os.path.join(root, file)
                 relative_path = os.path.relpath(full_path, start=dir_path).split(os.sep)
@@ -94,7 +89,8 @@ class MetainfoGenerator:
 
         return b''.join(pieces), file_list
 
-    def create_metainfo_file(self, file_path, trackers, metainfo_dir_path = None):
+    @staticmethod
+    def create_torrent_file(input_path: str, trackers: List[List[str]], piece_length: int = 262144, output_path: str = None):
         """
         Create a metainfo (.torrent) file for the given file. 
         See http://bittorrent.org/beps/bep_0003.html for more.
@@ -108,31 +104,31 @@ class MetainfoGenerator:
         Returns:
             `metainfo_filepath` (string): The path to the created metainfo file.
         """
-        if not os.path.exists(file_path):
-            raise FileNotFoundError(f"Invalid path: {file_path}")
+        if not os.path.exists(input_path):
+            raise FileNotFoundError(f"Invalid path: {input_path}")
         
-        dir_name = os.path.dirname(file_path)
-        file_name = os.path.basename(file_path)
+        dir_name = os.path.dirname(input_path)
+        file_name = os.path.basename(input_path)
         
         # Torrent metadata structure
         torrent_data = {
-            "announce": trackers[0],  # Primary tracker
+            "announce": trackers[0][0],  # Primary tracker
             "announce-list": [[tracker] for tracker in trackers],  # List of trackers
             "creation date": int(time.time()),
             "info": {
-                "piece length": self.piece_length,  # The length of each piece
+                "piece length": piece_length,  # The length of each piece
                 "name": file_name,  # Name of the file/directory
             }
         }
 
         # Check if it's a directory
-        if os.path.isfile(file_path):
-            file_size = os.path.getsize(file_path)
+        if os.path.isfile(input_path):
+            file_size = os.path.getsize(input_path)
 
             torrent_data["info"]["length"] = file_size
-            torrent_data["info"]["pieces"] = self._generate_file_pieces(file_path, self.piece_length) # Concatenated SHA-1 hashes of pieces
+            torrent_data["info"]["pieces"] = TorrentFile._generate_file_pieces(input_path, piece_length) # Concatenated SHA-1 hashes of pieces
         else: # file_path is a directory
-            pieces, file_list = self._generate_file_pieces_for_directory(file_path, self.piece_length)
+            pieces, file_list = TorrentFile._generate_file_pieces_for_directory(input_path, piece_length)
 
             torrent_data["info"]["pieces"] = pieces
             torrent_data["info"]["files"] = file_list
@@ -141,26 +137,45 @@ class MetainfoGenerator:
         encoded_data = bencodepy.encode(torrent_data)
 
         # Write the encoded data to a .torrent file
-        torrent_file_path = f"{dir_name}/{file_name}.torrent"
-        with open(torrent_file_path, 'wb') as torrent_file:
+        output_path = output_path if output_path else f"{dir_name}/{file_name}.torrent"
+        with open(output_path, 'wb') as torrent_file:
             torrent_file.write(encoded_data)
 
-        print(f"Torrent file created: {torrent_file_path}")
-        return torrent_file_path
+        print(f"Torrent file created: {output_path}")
+        return output_path
 
-def test():
-    # Path to the file you want to share
-    file_path = "D:/HCMUT_Workspace/HK241/Computer-Networks/Assignment-1/Like-torrent-application___/src/peer/__init__.py"
+    @staticmethod
+    def get_info_hash(torrent_filepath: str) -> str:
+        """
+        Reads a torrent file, extracts the 'info' dictionary, and calculates the SHA-1 info_hash.
+        
+        Args:
+            torrent_file_path (str): The path to the .torrent file.
+        
+        Returns:
+            str: The hexadecimal representation of the info_hash.
+        
+        Raises:
+            FileNotFoundError: If the specified file does not exist.
+            bencodepy.DecoderError: If the file is not in a valid Bencoded format.
+        """
+        try:
+            with open(torrent_filepath, 'rb') as file:
+                # Decode the torrent file
+                torrent_data = bencodepy.decode(file.read())
+                
+                # Extract the 'info' dictionary
+                info_dict = torrent_data[b'info']
 
-    # List of public trackers (you can add more)
-    trackers = [
-        "udp://tracker.leechers-paradise.org:6969/announce",
-        "udp://tracker.opentrackr.org:1337/announce"
-    ]
+                # Compute SHA-1 hash of the Bencoded 'info' dictionary
+                info_hash = hashlib.sha1(bencodepy.encode(info_dict)).hexdigest()
+                
+                return info_hash
 
-    # Create the torrent file
-    metainfo_generator = MetainfoGenerator()
-    metainfo_generator.create_metainfo_file(os.path.normpath(file_path), trackers)
+        except FileNotFoundError:
+            raise FileNotFoundError(f"The file '{torrent_filepath}' does not exist.")
+        except bencodepy.DecodingError:
+            raise ValueError("The file is not in a valid Bencoded format.")
 
-if __name__ == "__main__":
-    test()
+print(TorrentFile.get_info_hash("D:/HCMUT_Workspace/HK241/Computer-Networks/Assignment-1/torrent-like-application/data/sample.torrent"))
+# End-of-file (EOF)
