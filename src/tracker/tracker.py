@@ -21,10 +21,7 @@ def announce():
     info_hash = request.args.get('info_hash')
     peer_id = request.args.get('peer_id')
     port = request.args.get('port')
-    uploaded = request.args.get('uploaded')
-    downloaded = request.args.get('downloaded')
-    left = request.args.get('left')
-    event = request.args.get('event', 'started')
+    event = request.args.get('event')
     ip = request.remote_addr  # Get client IP
 
     if not (info_hash and peer_id and port):
@@ -47,7 +44,7 @@ def announce():
     peers = get_peer_list(info_hash)
     response = {"interval": 1800, "peers": peers}  # 'interval' is in seconds
 
-    return jsonify(response)
+    return jsonify(response), 200
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080, threaded=True)

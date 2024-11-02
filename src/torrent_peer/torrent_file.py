@@ -4,6 +4,8 @@ import hashlib
 import time
 from typing import List
 import bencodepy
+import logging
+logging.basicConfig(level=logging.DEBUG)
 
 class TorrentFile:
     """
@@ -26,7 +28,33 @@ class TorrentFile:
 
         `read_torrent_file
     """
-    @staticmethod
+    def __init__(self, filepath: str) -> None:
+        if not os.path.isfile(filepath):
+            raise FileNotFoundError("File not exists")
+        self._info_hash = TorrentFile.get_info_hash(filepath)
+        self._tracker_url = TorrentFile.get_tracker_url(filepath)
+        self._filepath = filepath
+
+    @property
+    def info_hash(self) -> str:
+        return self._info_hash
+
+    @property
+    def tracker_url(self) -> str:
+        return self._tracker_url
+
+    @property 
+    def filepath(self) -> str:
+        return self._filepath
+    
+    @property
+    def torrent_data(self):
+        """ Return decoded data from torrent file"""
+        with open(self.filepath, 'rb') as file:
+                # Decode the torrent file
+            return bencodepy.decode(file.read())
+
+        
     def _generate_file_pieces(file_path: str, piece_length: str=262144):
         """
         Generate concatenated SHA-1 hashes of all file pieces.
@@ -49,7 +77,6 @@ class TorrentFile:
 
         return b''.join(pieces)  # Concatenate all the SHA-1 hashes and return them as a single byte string
     
-    @staticmethod
     def _generate_file_pieces_for_directory(dir_path: str, piece_length: str = 262144):
         """
         Generate SHA-1 hashes for each piece of all files in a directory.
@@ -89,8 +116,8 @@ class TorrentFile:
 
         return b''.join(pieces), file_list
 
-    @staticmethod
-    def create_torrent_file(input_path: str, trackers: List[List[str]], piece_length: int = 262144, output_path: str = None):
+    @classmethod
+    def create_torrent_file(cls, input_path: str, trackers: List[List[str]], piece_length: int = 262144, output_path: str = None):
         """
         Create a metainfo (.torrent) file for the given file. 
         See http://bittorrent.org/beps/bep_0003.html for more.
@@ -126,9 +153,9 @@ class TorrentFile:
             file_size = os.path.getsize(input_path)
 
             torrent_data["info"]["length"] = file_size
-            torrent_data["info"]["pieces"] = TorrentFile._generate_file_pieces(input_path, piece_length) # Concatenated SHA-1 hashes of pieces
+            torrent_data["info"]["pieces"] = cls._generate_file_pieces(input_path, piece_length) # Concatenated SHA-1 hashes of pieces
         else: # file_path is a directory
-            pieces, file_list = TorrentFile._generate_file_pieces_for_directory(input_path, piece_length)
+            pieces, file_list = cls._generate_file_pieces_for_directory(input_path, piece_length)
 
             torrent_data["info"]["pieces"] = pieces
             torrent_data["info"]["files"] = file_list
@@ -144,8 +171,8 @@ class TorrentFile:
         print(f"Torrent file created: {output_path}")
         return output_path
 
-    @staticmethod
-    def get_info_hash(torrent_filepath: str) -> str:
+    @classmethod
+    def get_info_hash(cls, torrent_filepath: str) -> str:
         """
         Reads a torrent file, extracts the 'info' dictionary, and calculates the SHA-1 info_hash.
         
@@ -177,5 +204,29 @@ class TorrentFile:
         except bencodepy.DecodingError:
             raise ValueError("The file is not in a valid Bencoded format.")
 
-print(TorrentFile.get_info_hash("D:/HCMUT_Workspace/HK241/Computer-Networks/Assignment-1/torrent-like-application/data/sample.torrent"))
+    @classmethod 
+    def get_tracker_url(cls, torrent_filepath: str) -> str:
+        try:
+            with open(torrent_filepath, 'rb') as file:
+                # Decode the torrent file
+                torrent_data = bencodepy.decode(file.read())
+                tracker_url = torrent_data[b"announce"].decode('utf-8')  
+                return tracker_url
+        except FileNotFoundError:
+            raise FileNotFoundError(f"The file '{torrent_filepath}' does not exist.")
+        except bencodepy.DecodingError:
+            raise ValueError("The file is not in a valid Bencoded format.")
+        
+    @classmethod    
+    def get_pieces_field(cls, torrent_filepath: str) -> str:
+        try:
+            with open(torrent_filepath, 'rb') as file:
+                # Decode the torrent file
+                torrent_data = bencodepy.decode(file.read())
+                pieces = torrent_data[b"info"][b"pieces"]
+                return pieces
+        except FileNotFoundError:
+            raise FileNotFoundError(f"The file '{torrent_filepath}' does not exist.")
+        except bencodepy.DecodingError:
+            raise ValueError("The file is not in a valid Bencoded format.")
 # End-of-file (EOF)
