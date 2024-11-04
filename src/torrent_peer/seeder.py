@@ -1,24 +1,21 @@
-from typing import Dict, Union
+from typing import Dict, Union, List
 import random
-import string
-import requests
-import socket
 import asyncio
 import logging
 import struct
-import bencodepy
 from torrent_file import TorrentFile
 from peer_message import Handshake, Request, Piece
 from peer import TorrentPeer
 logging.basicConfig(level=logging.DEBUG)
 import random
+
 class TorrentSeeder(TorrentPeer):
     def __init__(self, port: int = 12345, peer_id: int = None): 
         super().__init__(port, peer_id)
         self.input_path = None
 
-    async def seed(self, input_path, trackers, piece_length = 2**14, output_path = None):
-        
+    async def seed(self, input_path: str, trackers: List[List[str]], piece_length: int = 2**14, 
+                   output_path: str = None):
         """
         Args:
             input_path (str): path to dir/file to be seeded
@@ -42,8 +39,14 @@ class TorrentSeeder(TorrentPeer):
 
             async with server:
                 await server.serve_forever()
+        except KeyboardInterrupt:
+            print("Program terminated using Ctr+C")
+            self._send_request_to_tracker("stopped")
         except Exception as e:
-            print("Caught", e)
+            print("Exception appeared when seeding", e)
+            self._send_request_to_tracker("stopped")
+        except BaseException as e:
+            print("Exception appeared when seeding", e)
             self._send_request_to_tracker("stopped")
 
     async def handle_client(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
@@ -51,9 +54,13 @@ class TorrentSeeder(TorrentPeer):
         print(f"Connected to {addr}")
         try: 
             request = await reader.read(68)
+            if not request:
+                    print(f'{addr} closed the connection')
+                    raise Exception(f"Connection to client {addr} closed!")  # or handle the lack of message appropriately
+
             if not Handshake.is_valid(request):
                 raise Exception("Invalid handshake response")
-            print("Receive handshake msg")
+            print(f"Receive handshake msg from {addr}")
 
             handshake_msg = Handshake(
                 self.torrent.info_hash.encode(), 
@@ -63,39 +70,32 @@ class TorrentSeeder(TorrentPeer):
             writer.write(handshake_msg)
             await writer.drain()
             logging.debug(f"Sent handshake response to {addr}")
+
+            # Listening for request after handshaking
             while True:
                 msg = await reader.read(4)
-                logging.debug(f"Msg received:{msg}")
+                if not msg:
+                    print(f'{addr} closed the connection')
+                    break  # or handle the lack of message appropriately
                 request_length = struct.unpack('>I', msg)[0]
-                logging.debug(request_length)
 
                 msg = await reader.read(request_length)
-                logging.debug(f"Msg received:{msg}")
     
                 (id, index, begin, length) = struct.unpack('>bIII', msg)
                 with open(self.input_path, "rb") as file:
                     file.seek(index * self.torrent.piece_length)
                     piece = file.read(length)
                 piece_msg = Piece(index, begin, piece).encode()
-                logging.debug(f"Message len sent: {len(piece_msg)}")
                 writer.write(piece_msg)
                 await writer.drain()                
+        except BaseException as e:
+            print(f"Error caught in handle_client {addr}")
+        finally:
+            print(f"Closed connection to {addr}")
+            writer.close()
+            await writer.wait_closed()
 
 
-        except Exception as e:
-            print(e)
-
-        
-    # async def upload(self):
-    #     """
-    #     Main coroutine to start the server.
-    #     """
-    #     server = await asyncio.start_server(self.handle_client, "localhost", 8888)
-    #     addr = server.sockets[0].getsockname()
-    #     print(f"Serving on {addr}")
-
-    #     async with server:
-    #         await server.serve_forever()
 
 if __name__ == "__main__":
     client = TorrentSeeder(random.randint(10000, 20000))

@@ -35,7 +35,6 @@ class TorrentLeecher(TorrentPeer):
         Args:
             peer (Dict[str, Any]): 
                 {
-                    "peer_id": 1234,
                     "ip": 126.0.0.1,
                     "port": 25
                 }
@@ -43,19 +42,25 @@ class TorrentLeecher(TorrentPeer):
         try:
             # Open connection
             reader, writer = await asyncio.wait_for(asyncio.open_connection(peer["ip"], int(peer["port"])), timeout=5) 
+
             # Create handshake msg
             handshake_msg = Handshake(
                 self.torrent.info_hash.encode(), 
                 self.peer_id.encode()
             ).encode()
+
             # Send handshake msg
             writer.write(handshake_msg)
             await writer.drain()
+
             # Wait for Handshake response from peer
             response = await reader.read(68)
+            if not response:
+                raise Exception(f"Connection to {peer} closed.")
             if not Handshake.is_valid(response):
                 raise Exception("Invalid handshake response")
             print("Receive handshake response")
+
             # Start requesting
             while not self.piece_manager.completed:
                 request_msg = self.piece_manager.get_request_msg()
@@ -64,6 +69,8 @@ class TorrentLeecher(TorrentPeer):
                 await writer.drain()
                 # Response length
                 msg = await reader.read(4)
+                if not msg:
+                    raise Exception(f"Connection to {peer} closed.")
                 # ### Check if fail -> mark pending_pieces
 
                 response_len = struct.unpack('>I', msg[:4])[0]
@@ -76,9 +83,19 @@ class TorrentLeecher(TorrentPeer):
             print("Download successfully!")
             writer.close()
             await writer.wait_closed()
+        except asyncio.TimeoutError:
+            print(f"Connection to {peer} attempt timed out.")
+        except ConnectionRefusedError:
+            print(f"Connection to {peer} was refused by the peer.")
+        except asyncio.IncompleteReadError:
+            print(f"Failed to read data from the peer {peer}.")
+        except Exception as e:
+            print(f"An unexpected error occurred: {e}")
         except Exception as e:
             print("Error caught: ", e)
-            raise e
+        finally:
+            writer.close()
+            await writer.wait_closed()
     
     async def download(self) -> None:
         try:
