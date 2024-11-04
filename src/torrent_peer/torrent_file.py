@@ -5,6 +5,7 @@ import time
 from typing import List
 import bencodepy
 import logging
+from bitstring import BitArray
 logging.basicConfig(level=logging.DEBUG)
 
 class TorrentFile:
@@ -53,8 +54,16 @@ class TorrentFile:
         with open(self.filepath, 'rb') as file:
                 # Decode the torrent file
             return bencodepy.decode(file.read())
-
         
+    @property
+    def number_of_pieces(self) -> int:
+        """ Number of pieces of file """
+        return len(self.torrent_data[b"info"][b"pieces"])/20 
+    
+    @property
+    def piece_length(self) -> int:
+        """ Number of bytes in each piece """
+        return self.torrent_data[b"info"][b"piece length"]
     def _generate_file_pieces(file_path: str, piece_length: str=262144):
         """
         Generate concatenated SHA-1 hashes of all file pieces.
@@ -212,19 +221,6 @@ class TorrentFile:
                 torrent_data = bencodepy.decode(file.read())
                 tracker_url = torrent_data[b"announce"].decode('utf-8')  
                 return tracker_url
-        except FileNotFoundError:
-            raise FileNotFoundError(f"The file '{torrent_filepath}' does not exist.")
-        except bencodepy.DecodingError:
-            raise ValueError("The file is not in a valid Bencoded format.")
-        
-    @classmethod    
-    def get_pieces_field(cls, torrent_filepath: str) -> str:
-        try:
-            with open(torrent_filepath, 'rb') as file:
-                # Decode the torrent file
-                torrent_data = bencodepy.decode(file.read())
-                pieces = torrent_data[b"info"][b"pieces"]
-                return pieces
         except FileNotFoundError:
             raise FileNotFoundError(f"The file '{torrent_filepath}' does not exist.")
         except bencodepy.DecodingError:

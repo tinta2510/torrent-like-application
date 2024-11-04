@@ -32,13 +32,13 @@ def announce():
         torrents[info_hash] = []
 
     # Update or add peer information
-    peer = {"peer_id": peer_id, "ip": ip, "port": port}
-    if peer not in torrents[info_hash]:
+    peer = {"ip": ip, "port": port}
+    if peer not in torrents[info_hash] and event=="started":
         torrents[info_hash].append(peer)
 
     # Handle 'stopped' event to remove peer
     if event == 'stopped':
-        torrents[info_hash] = [p for p in torrents[info_hash] if p["peer_id"] != peer_id]
+        torrents[info_hash] = [p for p in torrents[info_hash] if p != peer]
 
     # Respond with a list of peers for this torrent
     peers = get_peer_list(info_hash)

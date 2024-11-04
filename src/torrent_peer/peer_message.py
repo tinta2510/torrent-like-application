@@ -110,7 +110,7 @@ class Handshake(PeerMessage):
         message (ready to be transmitted).
         """
         return struct.pack(
-            '>B19s8x20s20s',
+            '>B19s8s20s20s',
             19,                         # Single byte (B)
             b'BitTorrent protocol',     # String 19s
             b"\x00" * 8,                # Reserved 8x (pad byte, no value)
@@ -125,15 +125,18 @@ class Handshake(PeerMessage):
         """
         if len(data) < (49 + 19):
             raise ValueError("Invalid Handshake message length")
-        parts = struct.unpack('>B19s8x20s20s', data)
+        parts = struct.unpack('>B19s8s20s20s', data)
         return cls(info_hash=parts[2], peer_id=parts[3])
     
     @classmethod
     def is_valid(cls, data: bytes):
         if len(data) != 68:
+            logging.debug("len 68!!!")
             return False
         if data[:1] != struct.pack("!B", 19) or data[1:20] != b'BitTorrent protocol':
+            logging.debug("Not bit torrent msg")
             return False
+        return True
 
     def __str__(self):
         return 'Handshake'
@@ -214,31 +217,43 @@ class BitField(PeerMessage):
     Message format:
         <len=0001+X><id=5><bitfield>
     """
-    def __init__(self, data: List[Literal[0,1]]):
+    def __init__(self, bitfield: bitstring.BitArray):
         # self.bitfield = bitstring.BitArray(bytes=data) # Original code
-        self.bitfield = ''.join(map(str, data)).encode # Tin's modification
+        self.bitfield = bitfield
 
     def encode(self) -> bytes:
         """
         Encodes this object instance to the raw bytes representing the entire
         message (ready to be transmitted).
         """
-        bits_length = len(self.bitfield)
-        return struct.pack('>Ib' + str(bits_length) + 's',
-                           1 + bits_length,
+        bitfield_len = len(self.bitfield) / 8
+        return struct.pack(f'>Ib{bitfield_len}s',
+                           1 + bitfield_len,
                            PeerMessage.BitField,
                            self.bitfield)
+    # Original code
+    # @classmethod
+    # def decode(cls, data: bytes):
+    #     message_length = struct.unpack('>I', data[:4])[0]
 
+    #     parts = struct.unpack('>Ib' + str(message_length - 1) + 's', data)
+    #     return cls(parts[2])
+
+    # Code from https://github.com/gallexis/PyTorrent/blob/master/message.py
     @classmethod
     def decode(cls, data: bytes):
-        message_length = struct.unpack('>I', data[:4])[0]
+        data_length, message_id = struct.unpack(">Ib", data[:5])
+        bitfield_length = data_length - 1
 
-        parts = struct.unpack('>Ib' + str(message_length - 1) + 's', data)
-        return cls(parts[2])
+        if message_id != cls.BitField:
+            raise TypeError("Not a BitField message")
+
+        bitfield = bitstring.BitArray(bytes = data[5:5 + bitfield_length])
+
+        return BitField(bitfield)
 
     def __str__(self):
         return 'BitField'
-
 
 class NotInterested(PeerMessage):
     """
@@ -346,6 +361,7 @@ class Piece(PeerMessage):
 
     def encode(self):
         message_length = Piece.length + len(self.block)
+        logging.debug(f"mesg_len {message_length}" )
         return struct.pack('>IbII' + str(len(self.block)) + 's',
                            message_length,
                            PeerMessage.Piece,

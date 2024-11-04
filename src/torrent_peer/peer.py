@@ -5,11 +5,12 @@ import string
 import requests
 from pathlib import Path
 import socket
+import logging
 import asyncio
 import bencodepy
 from torrent_file import TorrentFile
 from peer_message import Handshake, Request
-
+logging.basicConfig(level=logging.DEBUG)
 class TorrentPeer:
     def __init__(self, port: int = 12345, peer_id: int = None):
         self.peer_id:str = peer_id if peer_id is not None else self._generate_peer_id()
@@ -25,7 +26,7 @@ class TorrentPeer:
         peer_id = client_id + random_part
         return peer_id
     
-    def _send_request_to_tracker(self, event: str) -> requests.Response:
+    def _send_request_to_tracker(self, event: str = None) -> requests.Response:
         tracker_url = self.torrent.tracker_url
 
         params = {
@@ -35,13 +36,12 @@ class TorrentPeer:
         }
         if event is not None:
             params["event"] = event
-
         try:
             response = requests.get(tracker_url + "/announce", params=params, timeout=10)
             response.raise_for_status()  # Raise error if status is not 200
-            print("Tracker Response:", response)
+            print("Tracker Response:", response.json())
             return response
         except requests.exceptions.RequestException as e:
-            print(f"Error connecting to tracker. Status code: {response.status_code}.\nError: {e}")
+            print(f"Error connecting to tracker.\nError: {e}")
             return None
     
