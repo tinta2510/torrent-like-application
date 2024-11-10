@@ -4,9 +4,16 @@ from bitstring import BitArray
 from math import ceil
 import struct
 import logging
+import configparser
 from peer_message import Request, Piece, PeerMessage
 
 logging.basicConfig(level=logging.DEBUG)
+
+# Create a parser
+config = configparser.ConfigParser()
+# Read the config file
+config.read('../../config.ini')
+
 class PieceManager:
     def __init__(self, torrent: TorrentFile, output_path: str) -> None:
         self.torrent: TorrentFile = torrent
@@ -16,6 +23,7 @@ class PieceManager:
         self.connected_peers = {}
         self.completed = False
         self.output_path: str = output_path
+        
         with open(output_path, "wb") as file:
             file.truncate(self.torrent.torrent_data[b"info"][b"length"])
 
@@ -42,4 +50,3 @@ class PieceManager:
         self.had_pieces[index] = True
         self.pending_pieces[index] = False
         self.completed = all(self.had_pieces)
-

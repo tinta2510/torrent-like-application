@@ -64,6 +64,7 @@ class TorrentFile:
     def piece_length(self) -> int:
         """ Number of bytes in each piece """
         return self.torrent_data[b"info"][b"piece length"]
+    
     def _generate_file_pieces(file_path: str, piece_length: str=262144):
         """
         Generate concatenated SHA-1 hashes of all file pieces.

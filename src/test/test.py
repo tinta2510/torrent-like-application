@@ -12,6 +12,9 @@ from torrent_peer.torrent_file import TorrentFile
 
 import socket
 import socket
+import uuid
+
+print(str (uuid.uuid4()))
 
 
 
