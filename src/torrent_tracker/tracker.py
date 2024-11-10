@@ -7,11 +7,13 @@ import os
 import json
 
 # Read configuration
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+config_path = os.path.join(CURRENT_DIR, "../config.ini")
 config = configparser.ConfigParser()
-config.read('../../config.ini')
-TORRENT_DIR = config["tracker"]["TORRENT_DIR"]
-PEERS_FILE = config["tracker"]["PEERS_FILE"]
-TORRENTS_FILE = config["tracker"]["TORRENTS_FILE"]
+config.read(config_path)
+TORRENT_DIR = os.path.join(CURRENT_DIR, config["tracker"]["TORRENT_DIR"])
+PEERS_FILE = os.path.join(CURRENT_DIR, config["tracker"]["PEERS_FILE"])
+TORRENTS_FILE = os.path.join(CURRENT_DIR, config["tracker"]["TORRENTS_FILE"])
 
 app = FastAPI()
 

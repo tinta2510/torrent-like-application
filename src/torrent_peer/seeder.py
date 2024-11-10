@@ -13,12 +13,12 @@ from peer import TorrentPeer
 logging.basicConfig(level=logging.DEBUG)
 
 # Configuration
-current_dir = os.path.dirname(os.path.abspath(__file__))
-config_path = os.path.join(current_dir, "../../config.ini")
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+config_path = os.path.join(CURRENT_DIR, "../config.ini")
 config = configparser.ConfigParser()
 config.read(config_path)
 TRACKER_URL = config["peer"]["TRACKER_URL"]
-TORRENT_DIR = config["peer"]["TORRENT_DIR"]
+TORRENT_DIR = os.path.join(CURRENT_DIR, config["peer"]["TORRENT_DIR"])
 
 class TorrentSeeder(TorrentPeer):
     def __init__(self, port: int = 12345, peer_id: int = None): 

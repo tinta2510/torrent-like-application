@@ -18,12 +18,12 @@ from piece_manager import PieceManager
 logging.basicConfig(level=logging.DEBUG)
 
 # Configuration
-current_dir = os.path.dirname(os.path.abspath(__file__))
-config_path = os.path.join(current_dir, "../../config.ini")
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+config_path = os.path.join(CURRENT_DIR, "../config.ini")
 config = configparser.ConfigParser()
 config.read(config_path)
 TRACKER_URL = config["peer"]["TRACKER_URL"]
-TORRENT_DIR = config["peer"]["TORRENT_DIR"]
+TORRENT_DIR = os.path.join(CURRENT_DIR, config["peer"]["TORRENT_DIR"])
 
 class TorrentLeecher(TorrentPeer):
     def __init__(self, torrent_filepath: str, output_path: str = None, 
@@ -53,7 +53,7 @@ class TorrentLeecher(TorrentPeer):
 
         if response.status_code != 200:
             print(f"Fail to download file: ", response.status_code)
-        file_path = os.path.join(current_dir, TORRENT_DIR, file_name)
+        file_path = os.path.join(TORRENT_DIR, file_name)
 
         # Check for filename collision and adjust filename if needed
         if os.path.exists(file_path):
@@ -61,7 +61,7 @@ class TorrentLeecher(TorrentPeer):
             counter = 1
             while os.path.exists(file_path):
                 new_filename = f"{base}_{counter}{ext}"
-                file_path = os.path.join(current_dir, TORRENT_DIR, new_filename)
+                file_path = os.path.join(TORRENT_DIR, new_filename)
                 counter += 1
 
         with open(file_path, "wb") as f:

@@ -12,7 +12,7 @@ logging.basicConfig(level=logging.DEBUG)
 # Create a parser
 config = configparser.ConfigParser()
 # Read the config file
-config.read('../../config.ini')
+config.read('../config.ini')
 
 class PieceManager:
     def __init__(self, torrent: TorrentFile, output_path: str) -> None:
