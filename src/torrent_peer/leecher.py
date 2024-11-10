@@ -9,26 +9,65 @@ import os
 import struct
 from pathlib import Path
 import bencodepy
+import configparser
 from torrent_file import TorrentFile
 from peer_message import Handshake, Request
 from peer import TorrentPeer
 from piece_manager import PieceManager
-timout = 5
+
 logging.basicConfig(level=logging.DEBUG)
+
+# Configuration
+current_dir = os.path.dirname(os.path.abspath(__file__))
+config_path = os.path.join(current_dir, "../../config.ini")
+config = configparser.ConfigParser()
+config.read(config_path)
+TRACKER_URL = config["peer"]["TRACKER_URL"]
+TORRENT_DIR = config["peer"]["TORRENT_DIR"]
+
 class TorrentLeecher(TorrentPeer):
     def __init__(self, torrent_filepath: str, output_path: str = None, 
                  port: int = 12345, peer_id: int = None): 
         super().__init__(port, peer_id)
         self.torrent = TorrentFile(torrent_filepath)
-        self.output_path = output_path \
-                            if output_path is not None \
-                            else Path(torrent_filepath).with_suffix('') 
-        logging.debug(self.torrent.number_of_pieces)
-        self.piece_manager = PieceManager(self.torrent, output_path)
+        self.output_path =  output_path or Path(torrent_filepath).with_suffix('')
+        self.piece_manager = PieceManager(self.torrent, self.output_path)
 
     def get_peers(self) -> Dict[str, Any]:
         response = self._send_request_to_tracker()
-        return response.json()["peers"]
+        return response.json().get("peers", {})
+    
+    @staticmethod
+    def get_torrent():
+        # GET all torrents
+        response = requests.get(TRACKER_URL + "/torrents")
+        torrents = response.json()
+        print("Available torrents: ", torrents)
+        info_hash = input("Enter info_hash: ")
+        file_path = TorrentLeecher.get_torrent_by_info_hash(torrents[info_hash]["name"], info_hash)
+        return file_path
+    
+    @staticmethod
+    def get_torrent_by_info_hash(file_name: str, info_hash: str):
+        response = requests.get(TRACKER_URL + f"/torrents/{info_hash}")
+
+        if response.status_code != 200:
+            print(f"Fail to download file: ", response.status_code)
+        file_path = os.path.join(current_dir, TORRENT_DIR, file_name)
+
+        # Check for filename collision and adjust filename if needed
+        if os.path.exists(file_path):
+            base, ext = os.path.splitext(file_name)
+            counter = 1
+            while os.path.exists(file_path):
+                new_filename = f"{base}_{counter}{ext}"
+                file_path = os.path.join(current_dir, TORRENT_DIR, new_filename)
+                counter += 1
+
+        with open(file_path, "wb") as f:
+            f.write(response.content)
+
+        return file_path
 
     async def download_from_peer(self, peer: Dict[str, str]):
         """
@@ -107,13 +146,10 @@ class TorrentLeecher(TorrentPeer):
         except Exception as e:
             self._send_request_to_tracker("stopped")
 
-
-
 if __name__ == "__main__":
-    leecher = TorrentLeecher("D:/HCMUT_Workspace/HK241/Computer-Networks/Assignment-1/torrent-like-application/data/test/table-mountain.mp4.torrent",
-                             "D:/HCMUT_Workspace/HK241/Computer-Networks/Assignment-1/torrent-like-application/result.mp4")
+    torrent_filepath = TorrentLeecher.get_torrent()
+    leecher = TorrentLeecher(torrent_filepath)
     asyncio.run(leecher.download())
-        
         
 
     

@@ -1,34 +1,40 @@
-from typing import Dict, List
-from fastapi import FastAPI, Request, Response, File, UploadFile, Form, Query, HTTPException,\
-                     status
-from fastapi.responses import JSONResponse, RedirectResponse, FileResponse
-from pydantic import BaseModel
+from typing import Dict, List, Any
+from fastapi import FastAPI, Request, File, UploadFile, Form, Query, HTTPException, status
+from fastapi.responses import RedirectResponse, FileResponse
 import configparser
 import uuid
 import os
 import json
-# Create a parser
+
+# Read configuration
 config = configparser.ConfigParser()
-# Read the config file
 config.read('../../config.ini')
-UPLOADED_DIRECTORY = config["tracker"]["UPLOADED_DIRECTORY"]
+TORRENT_DIR = config["tracker"]["TORRENT_DIR"]
 PEERS_FILE = config["tracker"]["PEERS_FILE"]
 TORRENTS_FILE = config["tracker"]["TORRENTS_FILE"]
 
 app = FastAPI()
 
+# Exception response
 class NotFoundError(HTTPException):
     def __init__(self, detail: str = "Resource not found"):
         super().__init__(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
 
-# Store peers information in memory
+class BadRequestError(HTTPException):
+    def __init__(self, detail: str = "Bad Request Error."):
+        super().__init__(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
+
+# Function to get peers
 def get_peers(peer_dict, info_hash: str) -> List[Dict[str, str]]:
     """
     Retrieve the list of peers for a given info_hash.
     """
-    if info_hash in peer_dict:
-        return [{"ip": peer["ip"], "port": peer["port"]} for peer in peer_dict[info_hash]]
-    return []
+    return [
+        {
+            "ip": peer["ip"], 
+            "port": peer["port"]
+        } for peer in peer_dict.get(info_hash, [])
+    ]
 
 @app.get("/announce")
 async def announce(
@@ -37,49 +43,57 @@ async def announce(
     port: int = Query(...), 
     ip: str = Query(None),
     event: str = Query(None)
-) -> None:
-    ip = request.client.host # Get client IP
+):
+    public_ip = request.client.host # Get client IP
     with open(PEERS_FILE, "r") as f:
-        peer_dict = json.load(f) 
-    # Register peer in the list for the specific info_hash
-    if info_hash not in peer_dict:
-        peer_dict[info_hash] = []
+        peer_dict: Dict[str, List[Any]] = json.load(f) 
 
-    # Update or add peer information
-    peer = {"ip": ip, "port": port}
-    if peer not in peer_dict[info_hash] and event=="started":
+    peer_dict.setdefault(info_hash, []) 
+
+    # Update peer information
+    peer = {"ip": public_ip, "port": port}
+    if event=="started" and peer not in peer_dict[info_hash]:
         peer_dict[info_hash].append(peer)
-
-    # Handle 'stopped' event to remove peer
-    if event == 'stopped':
+    elif event == 'stopped':
         peer_dict[info_hash] = [p for p in peer_dict[info_hash] if p != peer]
     
+    # Update peer information in case a local ip is sent
+    if ip:
+        peer_2 = {"ip": ip, "port": port}
+        if event=="started" and peer_2 not in peer_dict[info_hash]:
+            peer_dict[info_hash].append(peer_2)
+        elif event == 'stopped':
+            peer_dict[info_hash] = [p for p in peer_dict[info_hash] if p != peer_2]
 
     # Respond with a list of peers for this torrent
     peers = get_peers(peer_dict, info_hash)
     with open(PEERS_FILE, 'w') as f:
         json.dump(peer_dict, f, indent=4)
     response = {"interval": 1800, "peers": peers}  # 'interval' is in seconds
-
     return response
 
 @app.post("/announce")
 async def insert_torrent(
-    request: Request, 
     file: UploadFile = File(...),
-    name: str = Form(...),
-    description: str = Form(None),
+    name: str = Form(""),
+    description: str = Form(""),
     info_hash: str = Query(...),
     port: int = Query(...),
     ip: str = Query(None),
-) -> None:
+):
+    # Check if the file has a .torrent extension
+    if not file.filename.endswith(".torrent"):
+        raise BadRequestError("Accept file with .torrent file extension only.")
+
     with open(TORRENTS_FILE, "r") as f:
         data = json.load(f) 
 
     if info_hash not in data:
-        file_path = os.path.join(UPLOADED_DIRECTORY, str(uuid.uuid4()))
+        file_path = os.path.join(TORRENT_DIR, f"{uuid.uuid4()}.torrent")
         with open(file_path, "wb") as f:
             f.write(await file.read())
+
+        name = name + ".torrent" if name else file.filename
 
         data[info_hash] = {
             "file_path": file_path,
@@ -90,7 +104,10 @@ async def insert_torrent(
         with open(TORRENTS_FILE, 'w') as f:
             json.dump(data, f, indent=4)
 
-    return RedirectResponse(url=f"/announce?info_hash={info_hash}&port={port}&{f"ip={ip}&" if ip else ""}event=started", status_code=302)
+    return RedirectResponse(
+        url=f"/announce?info_hash={info_hash}&port={port}&{f"ip={ip}&" if ip else ""}event=started", 
+        status_code=302
+    )
 
 @app.get("/torrents")
 async def get_all_torrents():
@@ -111,5 +128,3 @@ async def get_torrent_by_info_hash(info_hash: str):
         filename = data[info_hash]["name"],
         media_type= "application/octet-stream"
     )
-# @app.get("/torrents")
-# async def get_all_torrents(request: Request,)

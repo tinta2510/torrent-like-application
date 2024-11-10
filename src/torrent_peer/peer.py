@@ -11,6 +11,7 @@ import bencodepy
 from torrent_file import TorrentFile
 from peer_message import Handshake, Request
 logging.basicConfig(level=logging.DEBUG)
+
 class TorrentPeer:
     def __init__(self, port: int = 12345, peer_id: int = None):
         self.peer_id:str = peer_id if peer_id is not None else self._generate_peer_id()
@@ -44,4 +45,3 @@ class TorrentPeer:
         except requests.exceptions.RequestException as e:
             print(f"Error connecting to tracker.\nError: {e}")
             return None
-    

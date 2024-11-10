@@ -3,16 +3,49 @@ import random
 import asyncio
 import logging
 import struct
+import os
+import configparser
+import requests
 from torrent_file import TorrentFile
 from peer_message import Handshake, Request, Piece
 from peer import TorrentPeer
+
 logging.basicConfig(level=logging.DEBUG)
-import random
+
+# Configuration
+current_dir = os.path.dirname(os.path.abspath(__file__))
+config_path = os.path.join(current_dir, "../../config.ini")
+config = configparser.ConfigParser()
+config.read(config_path)
+TRACKER_URL = config["peer"]["TRACKER_URL"]
+TORRENT_DIR = config["peer"]["TORRENT_DIR"]
 
 class TorrentSeeder(TorrentPeer):
     def __init__(self, port: int = 12345, peer_id: int = None): 
         super().__init__(port, peer_id)
         self.input_path = None
+
+    def _upload_torrent_to_tracker(self, name: str, description: str, torrent_filepath: str):
+        with open(torrent_filepath, "rb") as file:
+            files = {'file': file}
+            data = {
+                "name": name,
+                "description": description,
+            }
+            params = {
+                "info_hash": self.torrent.info_hash,
+                "peer_id": self.peer_id,
+                "port": self.port,
+                "event": "started"
+            }
+            try:
+                response = requests.post(TRACKER_URL + "/announce", files=files, data=data, params=params)
+                response.raise_for_status()
+                print("Tracker response: ")
+                return response   
+            except requests.exceptions.RequestException as e:
+                print(f"Error connecting to tracker.\nError: {e}")
+                return None
 
     async def seed(self, input_path: str, trackers: List[List[str]], piece_length: int = 2**14, 
                    output_path: str = None):
@@ -28,7 +61,18 @@ class TorrentSeeder(TorrentPeer):
             output_path = TorrentFile.create_torrent_file(input_path, trackers, piece_length,output_path)
             self.torrent = TorrentFile(output_path)
             
-            response = self._send_request_to_tracker("started")
+            while True:
+                flag = input("Upload torrent file to tracker (y/n): ")
+                if flag == "y": 
+                    name = input("Name (.torrent): ")
+                    description = input("Description: ")
+                    response = self._upload_torrent_to_tracker(name, description, self.torrent.filepath)
+                    break
+                elif flag == "n":
+                    response = self._send_request_to_tracker("started")
+                    break
+                else:
+                    print("Enter 'y' or 'n' only.")
 
             """
             Main coroutine to start the server.
@@ -42,9 +86,6 @@ class TorrentSeeder(TorrentPeer):
         except KeyboardInterrupt:
             print("Program terminated using Ctr+C")
             self._send_request_to_tracker("stopped")
-        except Exception as e:
-            print("Exception appeared when seeding", e)
-            self._send_request_to_tracker("stopped")
         except BaseException as e:
             print("Exception appeared when seeding", e)
             self._send_request_to_tracker("stopped")
@@ -55,18 +96,18 @@ class TorrentSeeder(TorrentPeer):
         try: 
             request = await reader.read(68)
             if not request:
-                    print(f'{addr} closed the connection')
-                    raise Exception(f"Connection to client {addr} closed!")  # or handle the lack of message appropriately
+                print(f'{addr} closed the connection')
+                raise Exception(f"Connection to client {addr} closed!") 
 
             if not Handshake.is_valid(request):
                 raise Exception("Invalid handshake response")
             print(f"Receive handshake msg from {addr}")
 
+            # Send handshake msg
             handshake_msg = Handshake(
                 self.torrent.info_hash.encode(), 
                 self.peer_id.encode()
             ).encode()
-            # Send handshake msg
             writer.write(handshake_msg)
             await writer.drain()
             logging.debug(f"Sent handshake response to {addr}")
@@ -76,12 +117,12 @@ class TorrentSeeder(TorrentPeer):
                 msg = await reader.read(4)
                 if not msg:
                     print(f'{addr} closed the connection')
-                    break  # or handle the lack of message appropriately
-                request_length = struct.unpack('>I', msg)[0]
+                    break  
 
+                request_length = struct.unpack('>I', msg)[0]
                 msg = await reader.read(request_length)
-    
                 (id, index, begin, length) = struct.unpack('>bIII', msg)
+
                 with open(self.input_path, "rb") as file:
                     file.seek(index * self.torrent.piece_length)
                     piece = file.read(length)
@@ -95,9 +136,7 @@ class TorrentSeeder(TorrentPeer):
             writer.close()
             await writer.wait_closed()
 
-
-
 if __name__ == "__main__":
     client = TorrentSeeder(random.randint(10000, 20000))
     asyncio.run(client.seed("D:/HCMUT_Workspace/HK241/Computer-Networks/Assignment-1/torrent-like-application/data/test/table-mountain.mp4",
-                [["http://127.0.0.1:8080"]]))
+                [[TRACKER_URL]]))
