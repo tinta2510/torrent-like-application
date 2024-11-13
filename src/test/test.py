@@ -14,7 +14,9 @@ import socket
 import socket
 import uuid
 
-print(str (uuid.uuid4()))
+
+torrent =  Path("D:/HCMUT_Workspace/HK241/Computer-Networks/Assignment-1/torrent-like-application/src/peer_v2/torrents/table-mountain.mp4_1.torrent").stem
+print(torrent)
 
 
 

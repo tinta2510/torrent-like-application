@@ -6,17 +6,17 @@ import struct
 import os
 import configparser
 import requests
-from torrent_file import TorrentFile
-from peer_message import Handshake, Request, Piece
-from peer import TorrentPeer
+from torrent_peer.torrent_file import TorrentFile
+from torrent_peer.peer_message import Handshake, Request, Piece
+from torrent_peer.peer import TorrentPeer
 
 logging.basicConfig(level=logging.DEBUG)
 
 # Configuration
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-config_path = os.path.join(CURRENT_DIR, "../config.ini")
+CONFIG_PATH = os.path.join(CURRENT_DIR, "../config.ini")
 config = configparser.ConfigParser()
-config.read(config_path)
+config.read(CONFIG_PATH)
 TRACKER_URL = config["peer"]["TRACKER_URL"]
 TORRENT_DIR = os.path.join(CURRENT_DIR, config["peer"]["TORRENT_DIR"])
 

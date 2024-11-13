@@ -8,8 +8,8 @@ import socket
 import logging
 import asyncio
 import bencodepy
-from torrent_file import TorrentFile
-from peer_message import Handshake, Request
+from torrent_peer.torrent_file import TorrentFile
+from torrent_peer.peer_message import Handshake, Request
 logging.basicConfig(level=logging.DEBUG)
 
 class TorrentPeer:

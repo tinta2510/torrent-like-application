@@ -8,12 +8,12 @@ import json
 
 # Read configuration
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-config_path = os.path.join(CURRENT_DIR, "../config.ini")
+CONFIG_PATH = os.path.join(CURRENT_DIR, "../config.ini")
 config = configparser.ConfigParser()
-config.read(config_path)
+config.read(CONFIG_PATH)
 TORRENT_DIR = os.path.join(CURRENT_DIR, config["tracker"]["TORRENT_DIR"])
-PEERS_FILE = os.path.join(CURRENT_DIR, config["tracker"]["PEERS_FILE"])
-TORRENTS_FILE = os.path.join(CURRENT_DIR, config["tracker"]["TORRENTS_FILE"])
+PEER_FILE = os.path.join(CURRENT_DIR, config["tracker"]["PEER_FILE"])
+TORRENT_FILE = os.path.join(CURRENT_DIR, config["tracker"]["TORRENT_FILE"])
 
 app = FastAPI()
 
@@ -47,7 +47,7 @@ async def announce(
     event: str = Query(None)
 ):
     public_ip = request.client.host # Get client IP
-    with open(PEERS_FILE, "r") as f:
+    with open(PEER_FILE, "r") as f:
         peer_dict: Dict[str, List[Any]] = json.load(f) 
 
     peer_dict.setdefault(info_hash, []) 
@@ -69,7 +69,7 @@ async def announce(
 
     # Respond with a list of peers for this torrent
     peers = get_peers(peer_dict, info_hash)
-    with open(PEERS_FILE, 'w') as f:
+    with open(PEER_FILE, 'w') as f:
         json.dump(peer_dict, f, indent=4)
     response = {"interval": 1800, "peers": peers}  # 'interval' is in seconds
     return response
@@ -87,7 +87,7 @@ async def insert_torrent(
     if not file.filename.endswith(".torrent"):
         raise BadRequestError("Accept file with .torrent file extension only.")
 
-    with open(TORRENTS_FILE, "r") as f:
+    with open(TORRENT_FILE, "r") as f:
         data = json.load(f) 
 
     if info_hash not in data:
@@ -103,7 +103,7 @@ async def insert_torrent(
             "description": description,
         }
 
-        with open(TORRENTS_FILE, 'w') as f:
+        with open(TORRENT_FILE, 'w') as f:
             json.dump(data, f, indent=4)
 
     return RedirectResponse(
@@ -113,13 +113,13 @@ async def insert_torrent(
 
 @app.get("/torrents")
 async def get_all_torrents():
-    with open(TORRENTS_FILE, "r") as f:
+    with open(TORRENT_FILE, "r") as f:
         data = json.load(f)
     return data
 
 @app.get("/torrents/{info_hash}")
 async def get_torrent_by_info_hash(info_hash: str):
-    with open(TORRENTS_FILE, "r") as f:
+    with open(TORRENT_FILE, "r") as f:
         data = json.load(f)
 
     if info_hash not in data:
