@@ -1,12 +1,10 @@
-from peer_v2.torrent_file import TorrentFile
+from torrent_peer.torrent_file import TorrentFile
 from typing import List, Dict, Any
-from bitstring import BitArray
-from math import ceil
 import struct
 import logging
 import configparser
-from peer_v2.peer_message import Request, Piece, PeerMessage
-
+from torrent_peer.peer_message import Request, Piece, PeerMessage
+from pprint import pprint
 logging.basicConfig(level=logging.DEBUG)
 
 # Create a parser

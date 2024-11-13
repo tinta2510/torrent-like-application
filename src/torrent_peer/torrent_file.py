@@ -5,7 +5,7 @@ import time
 from typing import List
 import bencodepy
 import logging
-from bitstring import BitArray
+from torrent_peer.utils import get_unique_filename
 logging.basicConfig(level=logging.DEBUG)
 
 class TorrentFile:
@@ -174,7 +174,8 @@ class TorrentFile:
         encoded_data = bencodepy.encode(torrent_data)
 
         # Write the encoded data to a .torrent file
-        output_path = output_path if output_path else f"{dir_name}/{file_name}.torrent"
+        output_path = output_path or f"{dir_name}/{file_name}.torrent"
+        output_path = get_unique_filename(output_path)
         with open(output_path, 'wb') as torrent_file:
             torrent_file.write(encoded_data)
 
@@ -201,13 +202,13 @@ class TorrentFile:
                 # Decode the torrent file
                 torrent_data = bencodepy.decode(file.read())
                 
-                # Extract the 'info' dictionary
-                info_dict = torrent_data[b'info']
+            # Extract the 'info' dictionary
+            info_dict = torrent_data[b'info']
 
-                # Compute SHA-1 hash of the Bencoded 'info' dictionary
-                info_hash = hashlib.sha1(bencodepy.encode(info_dict)).hexdigest()
-                
-                return info_hash
+            # Compute SHA-1 hash of the Bencoded 'info' dictionary
+            info_hash = hashlib.sha1(bencodepy.encode(info_dict)).digest()
+            
+            return info_hash
 
         except FileNotFoundError:
             raise FileNotFoundError(f"The file '{torrent_filepath}' does not exist.")

@@ -19,7 +19,6 @@
 import logging
 import struct
 import bitstring
-from typing import List, Literal
 class PeerMessage:
     """
     A message between two peers.
@@ -90,7 +89,7 @@ class Handshake(PeerMessage):
     """
     length = 49 + 19
 
-    def __init__(self, info_hash: bytes, peer_id: bytes):
+    def __init__(self, info_hash: bytes | str):
         """
         Construct the handshake message
 
@@ -99,10 +98,7 @@ class Handshake(PeerMessage):
         """
         if isinstance(info_hash, str):
             info_hash = info_hash.encode('utf-8')
-        if isinstance(peer_id, str):
-            peer_id = peer_id.encode('utf-8')
-        self.info_hash = info_hash
-        self.peer_id = peer_id
+        self.info_hash: bytes = info_hash
 
     def encode(self) -> bytes:
         """
@@ -115,7 +111,7 @@ class Handshake(PeerMessage):
             b'BitTorrent protocol',     # String 19s
             b"\x00" * 8,                # Reserved 8x (pad byte, no value)
             self.info_hash,             # String 20s
-            self.peer_id)               # String 20s
+            b"\x00" * 20)               # String 20s
 
     @classmethod
     def decode(cls, data: bytes):
@@ -126,7 +122,7 @@ class Handshake(PeerMessage):
         if len(data) < (49 + 19):
             raise ValueError("Invalid Handshake message length")
         parts = struct.unpack('>B19s8s20s20s', data)
-        return cls(info_hash=parts[2], peer_id=parts[3])
+        return cls(info_hash=parts[3])
     
     @classmethod
     def is_valid(cls, data: bytes):
