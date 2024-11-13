@@ -2,7 +2,7 @@
 import os
 import hashlib
 import time
-from typing import List
+from typing import List, Tuple
 import bencodepy
 import logging
 from torrent_peer.utils import get_unique_filename
@@ -32,17 +32,34 @@ class TorrentFile:
     def __init__(self, filepath: str) -> None:
         if not os.path.isfile(filepath):
             raise FileNotFoundError("File not exists")
-        self._info_hash = TorrentFile.get_info_hash(filepath)
-        self._tracker_url = TorrentFile.get_tracker_url(filepath)
         self._filepath = filepath
+    
+    @property
+    def files(self) -> List[Tuple[str, int]]:
+        with open(self.filepath, 'rb') as f:
+            torrent_data = bencodepy.decode(f.read())
+        
+        info = torrent_data[b'info']
+        name = info[b'name'].decode()
+        file_list = info[b'files'] if b'files' in info else None
+        # Extract file details if multifile
+        if file_list:
+            files = [(file[b'path'], file[b'length']) for file in file_list]
+        else:
+            files = [(name, info[b'length'])]
+
+        paths = [(os.path.join(*[part.decode('utf-8') for part in path_parts]), length) 
+                    for path_parts, length in files]
+        return paths
+
 
     @property
     def info_hash(self) -> str:
-        return self._info_hash
+        return TorrentFile.get_info_hash(self.filepath)
 
     @property
     def tracker_url(self) -> str:
-        return self._tracker_url
+        return TorrentFile.get_tracker_url(self.filepath)
 
     @property 
     def filepath(self) -> str:

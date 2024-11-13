@@ -3,6 +3,7 @@ from typing import List, Dict, Any
 import struct
 import logging
 import configparser
+import os
 from torrent_peer.peer_message import Request, Piece, PeerMessage
 from pprint import pprint
 logging.basicConfig(level=logging.DEBUG)
@@ -13,17 +14,19 @@ config = configparser.ConfigParser()
 config.read('../config.ini')
 
 class PieceManager:
-    def __init__(self, torrent: TorrentFile, output_path: str) -> None:
+    def __init__(self, torrent: TorrentFile, output_dir: str) -> None:
         self.torrent: TorrentFile = torrent
         # Current downloaded pieces
         self.had_pieces: List[bool] = [False for i in range(int(self.torrent.number_of_pieces))] 
         self.pending_pieces: List[bool] = [False for i in range(int(self.torrent.number_of_pieces))]
         self.connected_peers = {}
         self.completed = False
-        self.output_path: str = output_path
+        self.output_dir: str = output_dir
         
-        with open(output_path, "wb") as file:
-            file.truncate(self.torrent.torrent_data[b"info"][b"length"])
+        for (path, length) in torrent.files: 
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(os.path.join(output_dir, path), "wb") as file:
+                file.truncate(length)
 
     def get_request_msg(self) -> Request:
         for i, value in enumerate(self.had_pieces):

@@ -2,14 +2,11 @@
 import configparser
 import os
 from typing import List, Dict, Any
-import json
 import requests
 import asyncio
 import logging
 import struct
-import threading
 import traceback
-import random
 from pathlib import Path
 
 from torrent_peer.piece_manager import PieceManager
@@ -53,7 +50,7 @@ class TorrentPeer:
         except requests.exceptions.RequestException as e:
             print(f"Error connecting to tracker.\nError: {e}")
             return None
-
+    ##### For seeding - BEGIN #####
     def _upload_torrent_to_tracker(self, name: str, description: str, torrent_filepath: str):
         torrent = TorrentFile(torrent_filepath)
         with open(torrent_filepath, "rb") as file:
@@ -77,8 +74,7 @@ class TorrentPeer:
                 print(f"Error connecting to tracker.\nError: {e}")
                 return None
 
-    def seed(self, 
-                   input_path: str, 
+    def seed(self, input_path: str, 
                    trackers: List[List[str]], 
                    piece_length: int = 2**14, 
                    torrent_filepath: str = None):
@@ -166,7 +162,9 @@ class TorrentPeer:
             print(f"Closed connection to {addr}")
             writer.close()
             await writer.wait_closed()
+    ##### For seeding - END #####
 
+    ##### For downloading - BEGIN #####
     def get_peers(self, torrent_filepath: str) -> Dict[str, Any]:
         response = self._send_request_to_tracker(torrent_filepath)
         return response.json().get("peers", {})
@@ -267,12 +265,12 @@ class TorrentPeer:
             writer.close()
             await writer.wait_closed()
 
-    async def download(self, torrent_filepath: str, output_path: str = None) -> None:
-        output_path = output_path or os.path.join(DOWNLOAD_DIR, Path(torrent_filepath).stem)
+    async def download(self, torrent_filepath: str, output_dir: str = None) -> None:
+        output_dir = output_dir or DOWNLOAD_DIR
         torrent = TorrentFile(torrent_filepath)
         try:
             peers = self.get_peers(torrent_filepath)
-            piece_manager = PieceManager(torrent, output_path)
+            piece_manager = PieceManager(torrent, output_dir)
             logging.debug(peers)
             tasks = [self.download_from_peer(piece_manager, torrent, peer) for peer in peers]
 
@@ -296,10 +294,12 @@ class TorrentPeer:
                 await asyncio.sleep(0.1)  # Non-blocking wait
         except KeyboardInterrupt:
             print("Program terminated using Ctr+C")
-            # self._send_request_to_tracker("stopped") ???
         except Exception as e:
             print("Exception appeared when start server", e)
-            # self._send_request_to_tracker("stopped")
+        finally:
+            for value in self.active_torrents.values():
+                self._send_request_to_tracker(value["torrent_filepath"], "stopped")
+    ##### For downloading - BEGIN #####
 
 
 

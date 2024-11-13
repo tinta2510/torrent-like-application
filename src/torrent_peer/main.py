@@ -41,7 +41,6 @@ def main():
         seeding_thread = threading.Thread(target=lambda peer, stop_event: asyncio.run(peer.start(stop_event)), args=(peer, stop_event))
         user_thread = threading.Thread(target=lambda peer, stop_event: asyncio.run(user_function(peer, stop_event)), args=(peer, stop_event))
 
-
         seeding_thread.start()
         user_thread.start()
 
