@@ -46,7 +46,7 @@ class TorrentFile:
         if file_list:
             files = [(file[b'path'], file[b'length']) for file in file_list]
         else:
-            files = [(name, info[b'length'])]
+            return None
 
         paths = [(os.path.join(*[part.decode('utf-8') for part in path_parts]), length) 
                     for path_parts, length in files]
@@ -117,30 +117,49 @@ class TorrentFile:
         """
         pieces = []
         file_list = []
-
-        def process_file(file_path, relative_path):
-            """
-            Process each file by reading its data in chunks and generating SHA-1 hashes.
-            """
-            with open(file_path, 'rb') as f:
-                while True:
-                    piece = f.read(piece_length)
-                    if not piece:
-                        break
-                    sha1 = hashlib.sha1(piece).digest()
-                    pieces.append(sha1)         
-            file_list.append({
-                'length': os.path.getsize(file_path),
-                'path': relative_path
-            })
+        total_data = b''
+        # def process_file(full_path, relative_path):
+        #     """
+        #     Process each file by reading its data in chunks and generating SHA-1 hashes.
+        #     """
+        #     with open(full_path, 'rb') as f:
+        #         while True:
+        #             piece = f.read(piece_length)
+        #             if not piece:
+        #                 break
+        #             sha1 = hashlib.sha1(piece).digest()
+        #             pieces.append(sha1)         
+        #     file_list.append({
+        #         'length': os.path.getsize(full_path),
+        #         'path': relative_path
+        #     })
 
         # Traverse the directory and process each file
         for root, _, files in os.walk(dir_path):
             for file in files:
                 full_path = os.path.join(root, file)
                 relative_path = os.path.relpath(full_path, start=dir_path).split(os.sep)
-                process_file(full_path, relative_path)
+                # process_file(full_path, relative_path)
+                file_list.append({
+                    'length': os.path.getsize(full_path),
+                    'path': relative_path
+                })
 
+                # Process each file by reading its data in chunks and generating SHA-1 hashes.
+                with open(full_path, 'rb') as f:
+                    while True:
+                        piece = f.read(piece_length)
+                        if not piece:
+                            break
+                        total_data += piece
+                        if len(total_data) >= piece_length:
+                            sha1 = hashlib.sha1(total_data[:piece_length]).digest()
+                            pieces.append(sha1) 
+                            total_data = total_data[piece_length:]
+        if len(total_data) > 0:
+            sha1 = hashlib.sha1(total_data).digest()
+            pieces.append(sha1)
+        
         return b''.join(pieces), file_list
 
     @classmethod

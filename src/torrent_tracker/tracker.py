@@ -15,6 +15,11 @@ TORRENT_DIR = os.path.join(CURRENT_DIR, config["tracker"]["TORRENT_DIR"])
 PEER_FILE = os.path.join(CURRENT_DIR, config["tracker"]["PEER_FILE"])
 TORRENT_FILE = os.path.join(CURRENT_DIR, config["tracker"]["TORRENT_FILE"])
 
+with open(PEER_FILE, 'w') as file:
+    file.write('{}')
+with open(TORRENT_FILE, 'w') as file:
+    file.write('{}')
+
 app = FastAPI()
 
 # Exception response

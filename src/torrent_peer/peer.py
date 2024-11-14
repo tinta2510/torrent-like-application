@@ -8,7 +8,6 @@ import logging
 import struct
 import traceback
 from pathlib import Path
-
 from torrent_peer.piece_manager import PieceManager
 from torrent_peer.torrent_file import TorrentFile
 from torrent_peer.utils import get_unique_filename, get_local_ip
@@ -109,7 +108,8 @@ class TorrentPeer:
                 else:
                     print("Enter 'y' or 'n' only.") 
         except Exception as e:
-            print("Exception appeared when seeding", e)
+            print("Exception appeared when seeding: ", e)
+            traceback.print_exc()
 
     async def handle_client(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
         addr = writer.get_extra_info('peername')
@@ -148,10 +148,9 @@ class TorrentPeer:
                 request_length = struct.unpack('>I', msg)[0]
                 msg = await reader.read(request_length)
                 (id, index, begin, length) = struct.unpack('>bIII', msg)
-
-                with open(curr_torrent_metadata["filepath"], "rb") as file:
-                    file.seek(index * curr_torrent.piece_length)
-                    piece = file.read(length)
+                
+                piece = self.get_piece_for_seeding(curr_torrent, curr_torrent_metadata, index, length)
+                    
                 piece_msg = Piece(index, begin, piece).encode()
                 writer.write(piece_msg)
                 await writer.drain()                
@@ -162,6 +161,35 @@ class TorrentPeer:
             print(f"Closed connection to {addr}")
             writer.close()
             await writer.wait_closed()
+
+    def get_piece_for_seeding(self, 
+                              curr_torrent: TorrentFile, 
+                              curr_torrent_metadata: Dict[str, Any], 
+                              index: int, 
+                              length: int):
+        piece_length = curr_torrent.piece_length
+        filepath = curr_torrent_metadata["filepath"]
+
+        if curr_torrent.files == None: # Single file case
+            with open(filepath, "rb") as file:
+                file.seek(index * piece_length)
+                piece = file.read(length)
+        else: 
+            lower_offset = index * piece_length
+            piece = b""
+            reading_length = length
+            for (path, file_length) in curr_torrent.files:
+                if lower_offset < file_length:
+                    with open(os.path.join(filepath, path), "rb") as file:
+                        file.seek(lower_offset)
+                        piece += file.read(reading_length)
+                    if len(piece) == length:
+                        break
+                    reading_length = length - len(piece)
+                    lower_offset = 0
+                else:
+                    lower_offset -= file_length
+        return piece
     ##### For seeding - END #####
 
     ##### For downloading - BEGIN #####
@@ -187,14 +215,7 @@ class TorrentPeer:
             print(f"Fail to download file: ", response.status_code)
         file_path = os.path.join(DOWNLOAD_DIR, file_name)
 
-        # Check for filename collision and adjust filename if needed
-        if os.path.exists(file_path):
-            base, ext = os.path.splitext(file_name)
-            counter = 1
-            while os.path.exists(file_path):
-                new_filename = f"{counter}_{base}{ext}"
-                file_path = os.path.join(DOWNLOAD_DIR, new_filename)
-                counter += 1
+        file_path = get_unique_filename(file_path)
 
         with open(file_path, "wb") as f:
             f.write(response.content)
@@ -246,7 +267,7 @@ class TorrentPeer:
                 # Piece 
                 piece = await reader.read(response_len)
                 logging.debug(f"Received piece length {len(piece)}")
-                piece_manager.receive_piece(piece, response_len)
+                piece_manager.receive_piece(piece)
             
             print("Download successfully!")
             writer.close()
@@ -258,9 +279,8 @@ class TorrentPeer:
         except asyncio.IncompleteReadError:
             print(f"Failed to read data from the peer {peer}.")
         except Exception as e:
-            print(f"An unexpected error occurred: {e}")
-        except Exception as e:
-            print("Error caught: ", e)
+            print(f"An unexpected error occurred at download_from_peer: {e}")
+            traceback.print_exc()
         finally:
             writer.close()
             await writer.wait_closed()
@@ -277,6 +297,7 @@ class TorrentPeer:
             await asyncio.gather(*tasks)
         except Exception as e:
             print("Exception occured at download function", e)
+            traceback.print_exc()
 
     async def start(self, stop_event):
         try:
