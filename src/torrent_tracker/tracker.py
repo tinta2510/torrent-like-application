@@ -15,10 +15,10 @@ TORRENT_DIR = os.path.join(CURRENT_DIR, config["tracker"]["TORRENT_DIR"])
 PEER_FILE = os.path.join(CURRENT_DIR, config["tracker"]["PEER_FILE"])
 TORRENT_FILE = os.path.join(CURRENT_DIR, config["tracker"]["TORRENT_FILE"])
 
-with open(PEER_FILE, 'w') as file:
-    file.write('{}')
-with open(TORRENT_FILE, 'w') as file:
-    file.write('{}')
+# with open(PEER_FILE, 'w') as file:
+#     file.write('{}')
+# with open(TORRENT_FILE, 'w') as file:
+#     file.write('{}')
 
 app = FastAPI()
 
@@ -127,8 +127,10 @@ async def get_torrent_by_info_hash(info_hash: str):
     with open(TORRENT_FILE, "r") as f:
         data = json.load(f)
 
-    if info_hash not in data:
-        raise NotFoundError(f"Torrent with {info_hash=} not found.")
+    if info_hash not in data or not os.path.exists(data[info_hash]["file_path"]):
+        raise BadRequestError(
+            detail=f"Bad Request: {info_hash} not found"
+        )
 
     return FileResponse(
         path = data[info_hash]["file_path"],

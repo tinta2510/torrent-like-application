@@ -4,13 +4,13 @@ import struct
 import logging
 import configparser
 import os
-from torrent_peer.peer_message import Request, Piece, PeerMessage
-from pprint import pprint
+from torrent_peer.peer_message import Request, PeerMessage
 from enum import Enum
 import hashlib
+
 from torrent_peer.utils import get_unique_filename
 
-logging.basicConfig(level=logging.DEBUG)
+# logging.basicConfig(level=logging.INFO)
 
 # Create a parser
 config = configparser.ConfigParser()
@@ -87,7 +87,6 @@ class PieceManager:
             for (path, file_length, upper_limit) in self.file_limit:
                 logging.debug("Loop check")
                 if lower_offset + curr >= upper_limit:
-                    print(f"Broken: {lower_offset=} + {curr=} >= {upper_limit=}")
                     continue
                 writing_position = lower_offset + curr - upper_limit + file_length
                 if upper_offset < upper_limit:

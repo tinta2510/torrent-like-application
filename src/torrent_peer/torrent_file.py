@@ -54,7 +54,7 @@ class TorrentFile:
 
 
     @property
-    def info_hash(self) -> str:
+    def info_hash(self) -> bytes:
         return TorrentFile.get_info_hash(self.filepath)
 
     @property
@@ -81,6 +81,11 @@ class TorrentFile:
     def piece_length(self) -> int:
         """ Number of bytes in each piece """
         return self.torrent_data[b"info"][b"piece length"]
+    
+    @property
+    def filename(self) -> str:
+        """ File name"""
+        return self.torrent_data[b"info"][b"name"].decode("utf-8")
     
     def _generate_file_pieces(file_path: str, piece_length: str=262144):
         """
@@ -219,7 +224,7 @@ class TorrentFile:
         return output_path
 
     @classmethod
-    def get_info_hash(cls, torrent_filepath: str) -> str:
+    def get_info_hash(cls, torrent_filepath: str) -> bytes:
         """
         Reads a torrent file, extracts the 'info' dictionary, and calculates the SHA-1 info_hash.
         
