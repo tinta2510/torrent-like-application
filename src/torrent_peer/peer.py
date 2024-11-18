@@ -10,6 +10,7 @@ import traceback
 from pathlib import Path
 from threading import Event
 from uuid import uuid4
+import aiofiles
 import traceback
 from torrent_peer.piece_manager import PieceManager
 from torrent_peer.torrent_file import TorrentFile
@@ -155,7 +156,7 @@ class TorrentPeer:
                 msg = await reader.read(request_length)
                 (id, index, begin, length) = struct.unpack('>bIII', msg)
                 
-                piece = self.get_piece_for_seeding(curr_torrent, curr_torrent_metadata, index, length)
+                piece = await self.get_piece_for_seeding(curr_torrent, curr_torrent_metadata, index, length)
                     
                 piece_msg = Piece(index, begin, piece).encode()
                 writer.write(piece_msg)
@@ -168,7 +169,7 @@ class TorrentPeer:
             writer.close()
             await writer.wait_closed()
 
-    def get_piece_for_seeding(self, 
+    async def get_piece_for_seeding(self, 
                               curr_torrent: TorrentFile, 
                               curr_torrent_metadata: Dict[str, Any], 
                               index: int, 
@@ -177,18 +178,18 @@ class TorrentPeer:
         filepath = curr_torrent_metadata["filepath"]
 
         if curr_torrent.files == None: # Single file case
-            with open(filepath, "rb") as file:
-                file.seek(index * piece_length)
-                piece = file.read(length)
+            async with aiofiles.open(filepath, "rb") as file:
+                await file.seek(index * piece_length)
+                piece = await file.read(length)
         else: 
             lower_offset = index * piece_length
             piece = b""
             reading_length = length
             for (path, file_length) in curr_torrent.files:
                 if lower_offset < file_length:
-                    with open(os.path.join(filepath, path), "rb") as file:
-                        file.seek(lower_offset)
-                        piece += file.read(reading_length)
+                    async with aiofiles.open(os.path.join(filepath, path), "rb") as file:
+                        await file.seek(lower_offset)
+                        piece += await file.read(reading_length)
                     if len(piece) == length:
                         break
                     reading_length = length - len(piece)
@@ -306,7 +307,7 @@ class TorrentPeer:
                 # Piece 
                 piece = await reader.read(response_len)
                 # logging.debug(f"Received piece length {len(piece)}")
-                piece_manager.receive_piece(piece)
+                await piece_manager.receive_piece(piece)
             
             if stop_event.is_set():
                 print("Downloading process is stopped.")
@@ -319,6 +320,7 @@ class TorrentPeer:
         except asyncio.IncompleteReadError:
             print(f"Failed to read data from the peer {peer}.")
         except Exception as e:
+            traceback.print_exc()
             print(f"An unexpected error occurred at download_from_peer: {e}")
         finally:
             writer.close()

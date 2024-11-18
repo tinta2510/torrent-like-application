@@ -57,6 +57,11 @@ async def leech():
             'error': "Missing required parameters",
             "missing": "torrent_filepath"
         }), 400
+    if not os.path.exists(torrent_filepath):
+        return jsonify({
+            'error': "File not found error.",
+            'details': "Torrent File not exists."
+        }), 400
     await peer.torrent_queue.put(torrent_filepath)
     return jsonify({"message": "Added file to be downloaded successfully"}), 200
 

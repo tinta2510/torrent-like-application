@@ -7,7 +7,7 @@ import os
 from torrent_peer.peer_message import Request, PeerMessage
 from enum import Enum
 import hashlib
-
+import aiofiles
 from torrent_peer.utils import get_unique_filename
 
 # logging.basicConfig(level=logging.INFO)
@@ -68,17 +68,9 @@ class PieceManager:
         expected_hash = self.torrent.torrent_data[b"info"][b"pieces"][index*20:index*20 + 20]
         hashed_data = hashlib.sha1(piece_data).digest() 
         return expected_hash == hashed_data
-
-    def receive_piece(self, piece: bytes):
+    
+    async def write_piece_to_file(self, index, data):
         piece_length = self.torrent.piece_length
-        (id, index, begin) = struct.unpack(f'>bII', piece[:9])
-        data = piece[9:]        
-
-        if (id != PeerMessage.Piece):
-            raise Exception("Not a valid Piece!")
-        if not self.validate_received_piece(data, index):
-            raise Exception("Not expected piece.")
-        logging.debug("Valid piece")
         if self.haveMultiFile:
             logging.debug("Checkpoint")
             lower_offset = index * piece_length
@@ -90,22 +82,34 @@ class PieceManager:
                     continue
                 writing_position = lower_offset + curr - upper_limit + file_length
                 if upper_offset < upper_limit:
-                    with open(os.path.join(self.output_name, path), "rb+") as file:
-                        file.seek(writing_position)
-                        file.write(data[curr:])
+                    async with aiofiles.open(os.path.join(self.output_name, path), "rb+") as file:
+                        await file.seek(writing_position)
+                        await file.write(data[curr:])
                     logging.debug(f"Write to {path} at {writing_position} with length {len(data[curr:])}")
                     break
                 else:
                     writing_length = upper_limit - (lower_offset + curr)
-                    with open(os.path.join(self.output_name, path), "rb+") as file:
-                        file.seek(writing_position)
-                        file.write(data[curr:curr+writing_length])
+                    async with aiofiles.open(os.path.join(self.output_name, path), "rb+") as file:
+                        await file.seek(writing_position)
+                        await file.write(data[curr:curr+writing_length])
                     logging.debug(f"Write to {path} at {writing_position} with length {writing_length}")
                     curr += writing_length     
         else:
-            with open(self.output_name, "rb+") as file:
-                file.seek(index * self.torrent.piece_length)
-                file.write(data)
+            async with aiofiles.open(self.output_name, "rb+") as file:
+                await file.seek(index * self.torrent.piece_length)
+                await file.write(data)
+
+    async def receive_piece(self, piece: bytes):
+        (id, index, begin) = struct.unpack(f'>bII', piece[:9])
+        data = piece[9:]        
+
+        if (id != PeerMessage.Piece):
+            raise Exception("Not a valid Piece!")
+        if not self.validate_received_piece(data, index):
+            raise Exception("Not expected piece.")
+        
+        logging.debug("Valid piece")
+        await self.write_piece_to_file(index, data)    
 
         self.pieces_status[index] = PieceStatus.DOWNLOADED
         self.completed = all([x == PieceStatus.DOWNLOADED for x in self.pieces_status])
