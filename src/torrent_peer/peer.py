@@ -255,8 +255,7 @@ class TorrentPeer:
     async def download_from_peer(self, 
                                  piece_manager: PieceManager, 
                                  torrent: TorrentFile, 
-                                 peer: Dict[str, str],
-                                 stop_event: Event):
+                                 peer: Dict[str, str]):
         """
         Args:
             peer (Dict[str, Any]): 
@@ -290,7 +289,6 @@ class TorrentPeer:
                 raise Exception("Invalid handshake response")
 
             # Start requesting
-            # while not piece_manager.completed and not stop_event.is_set():
             while not piece_manager.completed:
                 request_msg = piece_manager.get_request_msg()
                 # Send request
@@ -308,9 +306,6 @@ class TorrentPeer:
                 logging.info(f"Received piece from {peer}")
                 await piece_manager.receive_piece(piece)
             
-            if stop_event.is_set():
-                logging.info("Downloading process is stopped.")
-            else:
                 logging.info("Download successfully!")
         except asyncio.TimeoutError:
             print(f"Connection to {peer} attempt timed out.")
@@ -326,33 +321,29 @@ class TorrentPeer:
                 writer.close()
                 await writer.wait_closed()
 
-    async def download(self, torrent_filepath: str, stop_event: Event, output_dir: str = None):
+    async def download(self, torrent_filepath: str, output_dir: str = None):
         output_dir = output_dir or DOWNLOAD_DIR
         torrent = TorrentFile(torrent_filepath)
         print(f"Start downloading {torrent.info_hash}")
 
         piece_manager = PieceManager(torrent, output_dir)
         try:
-            # peers = self.get_peers(torrent_filepath)        
-            # self.leeching_torrents[torrent.info_hash] = piece_manager
-            # tasks = [self.download_from_peer(piece_manager, torrent, peer, stop_event) for peer in peers]
-            # await asyncio.gather(*tasks)
             while not piece_manager.completed:
                 peers = self.get_peers(torrent_filepath)
                 for peer in peers:
                     if peer not in piece_manager.active_peers:
-                        asyncio.create_task(self.download_from_peer(piece_manager, torrent, peer, stop_event))
+                        asyncio.create_task(self.download_from_peer(piece_manager, torrent, peer))
                 await asyncio.sleep(5)
         except Exception as e:
             print("Exception occured at download function", e)
 
-    async def start_leeching(self, stop_event: Event):
+    async def start_leeching(self):
         try: 
-            while not stop_event.is_set():
+            while True:
                 if not self.torrent_queue.empty():
                     torrent_filepath = await self.torrent_queue.get()
                     logging.info(f"Start downloading torrent of {torrent_filepath}")
-                    asyncio.create_task(self.download(torrent_filepath, stop_event))
+                    asyncio.create_task(self.download(torrent_filepath))
                 await asyncio.sleep(0.1)
         except KeyboardInterrupt:
             logging.info("Program terminated using Ctr+C")

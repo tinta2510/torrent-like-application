@@ -17,7 +17,6 @@ TORRENT_DIR = os.path.join(CURRENT_DIR, config["peer"]["TORRENT_DIR"])
 DOWNLOAD_DIR = os.path.join(CURRENT_DIR, config["peer"]["DOWNLOAD_DIR"])
 
 app = Quart(__name__)
-stop_event = Event()
 peer = TorrentPeer(randint(1025, 60000))
 
 @app.route("/")
@@ -92,14 +91,13 @@ async def run_background_tasks():
     # Start peer tasks
     print("Start peer tasks.")
     asyncio.create_task(peer.start_seeding())
-    asyncio.create_task(peer.start_leeching(stop_event))
+    asyncio.create_task(peer.start_leeching())
 
 def main():
     try:
         app.run(port=randint(1025, 5000))
     except KeyboardInterrupt:
         print("Catch Ctrl+C")
-        stop_event.set()
 
 if __name__ == '__main__':
     main()
