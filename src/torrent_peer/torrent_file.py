@@ -220,7 +220,7 @@ class TorrentFile:
         with open(output_path, 'wb') as torrent_file:
             torrent_file.write(encoded_data)
 
-        print(f"Torrent file created: {output_path}")
+        logging.info(f"Torrent file created: {output_path}")
         return output_path
 
     @classmethod

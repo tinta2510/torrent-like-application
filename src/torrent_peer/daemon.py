@@ -4,7 +4,6 @@ import configparser
 from random import randint
 from threading import Thread, Event
 import asyncio
-import requests
 import logging
 from torrent_peer.utils import get_unique_filename
 from torrent_peer.peer import TorrentPeer
@@ -21,7 +20,7 @@ app = Quart(__name__)
 stop_event = Event()
 peer = TorrentPeer(randint(1025, 60000))
 
-@app.route("/", methods=["GET"])
+@app.route("/")
 def status():
     return jsonify({"status": "OK"}), 200
 
@@ -92,8 +91,8 @@ def get_torrent_by_info_hash(info_hash):
 async def run_background_tasks():
     # Start peer tasks
     print("Start peer tasks.")
-    seeding_task = asyncio.create_task(peer.start_seeding(stop_event))
-    leeching_task = asyncio.create_task(peer.start_leeching(stop_event))
+    asyncio.create_task(peer.start_seeding())
+    asyncio.create_task(peer.start_leeching(stop_event))
 
 def main():
     try:

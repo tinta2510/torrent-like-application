@@ -50,10 +50,10 @@ class TorrentPeer:
         try:
             response = requests.get(tracker_url + "/announce", params=params, timeout=10)
             response.raise_for_status()  # Raise error if status is not 200
-            print("Tracker Response:", response.json())
+            logging.debug("Tracker Response:", response.json())
             return response
         except requests.exceptions.RequestException as e:
-            print(f"Error connecting to tracker.\nError: {e}")
+            logging.info(f"Error connecting to tracker.\nError: {e}")
             return None
     ##### For seeding - BEGIN #####
     def _upload_torrent_to_tracker(self, name: str, description: str, torrent_filepath: str):
@@ -72,12 +72,12 @@ class TorrentPeer:
                 "event": "started"
             }
             try:
-                response = requests.post(tracker_url + "/announce", files=files, data=data, params=params)
+                response = requests.post(tracker_url + "/announce", files=files, data=data, params=params, timeout=10)
                 response.raise_for_status()
-                print("Tracker response: ")
+                logging.debug("Tracker response: ")
                 return response   
             except requests.exceptions.RequestException as e:
-                print(f"Error connecting to tracker.\nError: {e}")
+                logging.info(f"Error connecting to tracker.\nError: {e}")
                 return None
 
     def seed(self, input_path: str, 
@@ -120,16 +120,15 @@ class TorrentPeer:
 
     async def handle_client(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
         addr = writer.get_extra_info('peername')
-        print(f"Connected to {addr}")
+        logging.info(f"Connected to {addr}")
         try: 
             request = await reader.read(68)
             if not request:
-                print(f'{addr} closed the connection')
+                logging.debug(f'{addr} closed the connection')
                 raise Exception(f"Connection to client {addr} closed!") 
 
             if not Handshake.is_valid(request):
                 raise Exception("Invalid handshake response")
-            print(f"Receive handshake msg from {addr}")
 
             # Get correct torrent to seed
             handshake_request = Handshake.decode(request)
@@ -149,7 +148,7 @@ class TorrentPeer:
             while True:
                 msg = await reader.read(4)
                 if not msg:
-                    print(f'{addr} closed the connection')
+                    logging.debug(f'{addr} closed the connection')
                     break  
 
                 request_length = struct.unpack('>I', msg)[0]
@@ -162,10 +161,9 @@ class TorrentPeer:
                 writer.write(piece_msg)
                 await writer.drain()                
         except Exception as e:
-            print(f"Error caught in handle_client {addr}: ", e)
-            traceback.print_exc()
+            logging.info(f"Error caught in handle_client {addr}: ", e)
         finally:
-            print(f"Closed connection to {addr}")
+            logging.info(f"Closed connection to {addr}")
             writer.close()
             await writer.wait_closed()
 
@@ -252,7 +250,6 @@ class TorrentPeer:
         except PermissionError:
             raise PermissionError(f"Permission denied. You may not have the right permissions. {e}") from e
         except Exception as e:
-            traceback.print_exc()
             raise Exception(f"Error occured during getting torrent by info_hash from tracker. {e}") from e
 
     async def download_from_peer(self, 
@@ -269,12 +266,13 @@ class TorrentPeer:
                 }
         """
         try:
-            print("Conneting to ...")
+            logging.debug(f"Try to connect to ({peer['ip']}, {peer['port']}), time out after 5s")
             # Open connection
             reader, writer = await asyncio.wait_for(
                 asyncio.open_connection(peer["ip"], int(peer["port"])), 
-                timeout=5) 
-            print("Connected to ... ")
+                timeout=5
+            ) 
+            logging.info(f"Connected to ({peer['ip']}, {peer['port']})")
             # Create handshake msg
             handshake_msg = Handshake(torrent.info_hash).encode()
 
@@ -291,7 +289,8 @@ class TorrentPeer:
             # logging.debug("Receive handshake response")
 
             # Start requesting
-            while not piece_manager.completed and not stop_event.is_set():
+            # while not piece_manager.completed and not stop_event.is_set():
+            while not piece_manager.completed:
                 request_msg = piece_manager.get_request_msg()
                 # Send request
                 writer.write(request_msg)
@@ -303,16 +302,15 @@ class TorrentPeer:
                 # ### Check if fail -> mark pending_pieces
 
                 response_len = struct.unpack('>I', msg[:4])[0]
-                # logging.debug(f"Piece response len: {response_len}")
                 # Piece 
                 piece = await reader.read(response_len)
-                # logging.debug(f"Received piece length {len(piece)}")
+                logging.info(f"Received piece from {peer}")
                 await piece_manager.receive_piece(piece)
             
             if stop_event.is_set():
-                print("Downloading process is stopped.")
+                logging.info("Downloading process is stopped.")
             else:
-                print("Download successfully!")
+                logging.info("Download successfully!")
         except asyncio.TimeoutError:
             print(f"Connection to {peer} attempt timed out.")
         except ConnectionRefusedError:
@@ -323,8 +321,9 @@ class TorrentPeer:
             traceback.print_exc()
             print(f"An unexpected error occurred at download_from_peer: {e}")
         finally:
-            writer.close()
-            await writer.wait_closed()
+            if writer:
+                writer.close()
+                await writer.wait_closed()
 
     async def download(self, torrent_filepath: str, stop_event: Event, output_dir: str = None):
         output_dir = output_dir or DOWNLOAD_DIR
@@ -345,29 +344,29 @@ class TorrentPeer:
             while not stop_event.is_set():
                 if not self.torrent_queue.empty():
                     torrent_filepath = await self.torrent_queue.get()
-                    print("Create download task.")
+                    logging.info(f"Start downloading torrent of {torrent_filepath}")
                     asyncio.create_task(self.download(torrent_filepath, stop_event))
                 await asyncio.sleep(0.1)
         except KeyboardInterrupt:
-            print("Program terminated using Ctr+C")
+            logging.info("Program terminated using Ctr+C")
         except Exception as e:
-            print("Exception appeared when start server", e)
+            logging.info("Exception appeared when start server", e)
 
-    async def start_seeding(self, stop_event: Event):
+    async def start_seeding(self):
         try:
             """
             Main coroutine to start the server.
             """
             server = await asyncio.start_server(self.handle_client, "127.0.0.1", self.port)
             addr = server.sockets[0].getsockname()
-            print(f"Serving on {addr}")
+            logging.info(f"Seeding on {addr}")
 
-            while not stop_event.is_set():
-                await asyncio.sleep(0.1)  # Non-blocking wait
+            async with server:
+                await server.serve_forever()
         except KeyboardInterrupt:
-            print("Program terminated using Ctr+C")
+            logging.info("Program terminated using Ctr+C")
         except Exception as e:
-            print("Exception appeared when start server", e)
+            logging.info("Exception appeared when start server", e)
         finally:
             for value in self.seeding_torrents.values():
                 self._send_request_to_tracker(value["torrent_filepath"], "stopped")

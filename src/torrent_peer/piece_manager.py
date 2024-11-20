@@ -31,6 +31,7 @@ class PieceManager:
             os.path.join(output_dir, self.torrent.torrent_data[b"info"][b"name"].decode("utf-8"))
         )
         self.haveMultiFile =  True if torrent.files else False
+        self.active_peers = []
 
         if self.haveMultiFile: # In case of multi files
             # Calculate file offset + total length
@@ -108,7 +109,7 @@ class PieceManager:
         if not self.validate_received_piece(data, index):
             raise Exception("Not expected piece.")
         
-        logging.debug("Valid piece")
+        logging.info("Received piece")
         await self.write_piece_to_file(index, data)    
 
         self.pieces_status[index] = PieceStatus.DOWNLOADED
