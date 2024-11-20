@@ -15,11 +15,6 @@ TORRENT_DIR = os.path.join(CURRENT_DIR, config["tracker"]["TORRENT_DIR"])
 PEER_FILE = os.path.join(CURRENT_DIR, config["tracker"]["PEER_FILE"])
 TORRENT_FILE = os.path.join(CURRENT_DIR, config["tracker"]["TORRENT_FILE"])
 
-# with open(PEER_FILE, 'w') as file:
-#     file.write('{}')
-# with open(TORRENT_FILE, 'w') as file:
-#     file.write('{}')
-
 app = FastAPI()
 
 # Exception response
@@ -95,7 +90,7 @@ async def insert_torrent(
     with open(TORRENT_FILE, "r") as f:
         data = json.load(f) 
 
-    if info_hash not in data:
+    if info_hash not in data or not os.path.exists(data[info_hash]["file_path"]):
         file_path = os.path.join(TORRENT_DIR, f"{uuid.uuid4()}.torrent")
         with open(file_path, "wb") as f:
             f.write(await file.read())

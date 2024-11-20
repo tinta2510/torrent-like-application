@@ -142,7 +142,6 @@ class TorrentPeer:
             handshake_msg = Handshake(info_hash).encode()
             writer.write(handshake_msg)
             await writer.drain()
-            # logging.debug(f"Sent handshake response to {addr}")
 
             # Listening for request after handshaking
             while True:
@@ -156,16 +155,17 @@ class TorrentPeer:
                 (id, index, begin, length) = struct.unpack('>bIII', msg)
                 
                 piece = await self.get_piece_for_seeding(curr_torrent, curr_torrent_metadata, index, length)
-                    
                 piece_msg = Piece(index, begin, piece).encode()
+                logging.info(f"Send PIECE with index {index} to peer {addr}")
                 writer.write(piece_msg)
                 await writer.drain()                
         except Exception as e:
             logging.info(f"Error caught in handle_client {addr}: ", e)
         finally:
             logging.info(f"Closed connection to {addr}")
-            writer.close()
-            await writer.wait_closed()
+            if writer:
+                writer.close()
+                await writer.wait_closed()
 
     async def get_piece_for_seeding(self, 
                               curr_torrent: TorrentFile, 
@@ -273,6 +273,8 @@ class TorrentPeer:
                 timeout=5
             ) 
             logging.info(f"Connected to ({peer['ip']}, {peer['port']})")
+
+            piece_manager.active_peers.append(peer)
             # Create handshake msg
             handshake_msg = Handshake(torrent.info_hash).encode()
 
@@ -286,7 +288,6 @@ class TorrentPeer:
                 raise Exception(f"Connection to {peer} closed.")
             if not Handshake.is_valid(response):
                 raise Exception("Invalid handshake response")
-            # logging.debug("Receive handshake response")
 
             # Start requesting
             # while not piece_manager.completed and not stop_event.is_set():
@@ -318,9 +319,9 @@ class TorrentPeer:
         except asyncio.IncompleteReadError:
             print(f"Failed to read data from the peer {peer}.")
         except Exception as e:
-            traceback.print_exc()
             print(f"An unexpected error occurred at download_from_peer: {e}")
         finally:
+            piece_manager.active_peers.remove(peer)
             if writer:
                 writer.close()
                 await writer.wait_closed()
@@ -332,10 +333,16 @@ class TorrentPeer:
 
         piece_manager = PieceManager(torrent, output_dir)
         try:
-            peers = self.get_peers(torrent_filepath)        
-            self.leeching_torrents[torrent.info_hash] = piece_manager
-            tasks = [self.download_from_peer(piece_manager, torrent, peer, stop_event) for peer in peers]
-            await asyncio.gather(*tasks)
+            # peers = self.get_peers(torrent_filepath)        
+            # self.leeching_torrents[torrent.info_hash] = piece_manager
+            # tasks = [self.download_from_peer(piece_manager, torrent, peer, stop_event) for peer in peers]
+            # await asyncio.gather(*tasks)
+            while not piece_manager.completed:
+                peers = self.get_peers(torrent_filepath)
+                for peer in peers:
+                    if peer not in piece_manager.active_peers:
+                        asyncio.create_task(self.download_from_peer(piece_manager, torrent, peer, stop_event))
+                await asyncio.sleep(5)
         except Exception as e:
             print("Exception occured at download function", e)
 
