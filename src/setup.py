@@ -9,7 +9,7 @@ setup(
     ],
     entry_points={
         "console_scripts": [
-            "torrent_peer=torrent_peer.main:main",
+            "torrent_daemon=torrent_peer.daemon:main",
             "torrent_tracker=torrent_tracker.main:main"
         ],
     },

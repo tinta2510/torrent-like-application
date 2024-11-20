@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from quart import Quart, request, jsonify
 import os
 import configparser
 from random import randint
@@ -17,8 +17,8 @@ TRACKER_URL = config["peer"]["TRACKER_URL"]
 TORRENT_DIR = os.path.join(CURRENT_DIR, config["peer"]["TORRENT_DIR"])
 DOWNLOAD_DIR = os.path.join(CURRENT_DIR, config["peer"]["DOWNLOAD_DIR"])
 
-app = Flask(__name__)
-
+app = Quart(__name__)
+stop_event = Event()
 peer = TorrentPeer(randint(1025, 60000))
 
 @app.route("/", methods=["GET"])
@@ -26,9 +26,9 @@ def status():
     return jsonify({"status": "OK"}), 200
 
 @app.route("/seed", methods=["POST"])
-def seed():
+async def seed():
     try:
-        data = request.get_json()    
+        data = await request.get_json()    
         input_path = data.get("input_path", None)
         if input_path is None:
             return jsonify({"error": "input_path is required"}), 400
@@ -50,7 +50,7 @@ def seed():
     
 @app.route("/leech", methods=["POST"])  
 async def leech():
-    data = request.get_json()
+    data = await request.get_json()
     torrent_filepath = data.get("torrent_filepath", None)
     if not torrent_filepath:
         return jsonify({
@@ -66,7 +66,7 @@ async def leech():
     return jsonify({"message": "Added file to be downloaded successfully"}), 200
 
 @app.route("/torrents", methods=["GET"])
-def get_torrents():
+async def get_torrents():
     try:
         torrents = TorrentPeer.get_torrents()
         return jsonify({"data": torrents}), 200
@@ -88,22 +88,19 @@ def get_torrent_by_info_hash(info_hash):
         logging.error(f"Unexpected error: {e}")  # Log the error for debugging
         return jsonify({"error": "An unexpected error occurred", "details": str(e)}), 500
 
-async def start_peer(peer: TorrentPeer, stop_event: Event):
-    seeding = asyncio.create_task(peer.start_seeding(stop_event))
-    leeching = asyncio.create_task(peer.start_leeching(stop_event))
+@app.before_serving
+async def run_background_tasks():
+    # Start peer tasks
+    print("Start peer tasks.")
+    seeding_task = asyncio.create_task(peer.start_seeding(stop_event))
+    leeching_task = asyncio.create_task(peer.start_leeching(stop_event))
 
-    await asyncio.gather(seeding, leeching)
+def main():
+    try:
+        app.run(port=randint(1025, 5000))
+    except KeyboardInterrupt:
+        print("Catch Ctrl+C")
+        stop_event.set()
 
 if __name__ == '__main__':
-    stop_event = Event()
-    peer_thread = Thread(
-        target=lambda peer, stop_event: asyncio.run(start_peer(peer, stop_event)),
-        args=(peer, stop_event)
-    )
-
-    try:
-        peer_thread.start()
-        app.run(port=randint(1024, 50000))
-    finally:
-        stop_event.set()
-        peer_thread.join()
+    main()
