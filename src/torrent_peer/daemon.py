@@ -2,12 +2,10 @@ from quart import Quart, request, jsonify
 import os
 import configparser
 from random import randint
-from threading import Thread, Event
 import asyncio
 import logging
-from torrent_peer.utils import get_unique_filename
 from torrent_peer.peer import TorrentPeer
-
+import tqdm
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH = os.path.join(CURRENT_DIR, "../config.ini")
 config = configparser.ConfigParser()
@@ -15,6 +13,8 @@ config.read(CONFIG_PATH)
 TRACKER_URL = config["peer"]["TRACKER_URL"]
 TORRENT_DIR = os.path.join(CURRENT_DIR, config["peer"]["TORRENT_DIR"])
 DOWNLOAD_DIR = os.path.join(CURRENT_DIR, config["peer"]["DOWNLOAD_DIR"])
+os.makedirs(TORRENT_DIR, exist_ok=True)
+os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
 app = Quart(__name__)
 peer = TorrentPeer(randint(1025, 60000))

@@ -14,6 +14,7 @@ config.read(CONFIG_PATH)
 TORRENT_DIR = os.path.join(CURRENT_DIR, config["tracker"]["TORRENT_DIR"])
 PEER_FILE = os.path.join(CURRENT_DIR, config["tracker"]["PEER_FILE"])
 TORRENT_FILE = os.path.join(CURRENT_DIR, config["tracker"]["TORRENT_FILE"])
+os.makedirs(TORRENT_DIR, exist_ok=True)
 
 app = FastAPI()
 

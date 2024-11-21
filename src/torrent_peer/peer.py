@@ -6,12 +6,9 @@ import requests
 import asyncio
 import logging
 import struct
-import traceback
-from pathlib import Path
-from threading import Event
 from uuid import uuid4
 import aiofiles
-import traceback
+from tqdm.asyncio import tqdm_asyncio
 from torrent_peer.piece_manager import PieceManager
 from torrent_peer.torrent_file import TorrentFile
 from torrent_peer.utils import get_unique_filename
@@ -27,6 +24,7 @@ config.read(CONFIG_PATH)
 TRACKER_URL = config["peer"]["TRACKER_URL"]
 TORRENT_DIR = os.path.join(CURRENT_DIR, config["peer"]["TORRENT_DIR"])
 DOWNLOAD_DIR = os.path.join(CURRENT_DIR, config["peer"]["DOWNLOAD_DIR"])
+INTERVAL = int(config["peer"]["INTERVAL"])
 
 class TorrentPeer:
     def __init__(self, port: int = None):
@@ -255,7 +253,8 @@ class TorrentPeer:
     async def download_from_peer(self, 
                                  piece_manager: PieceManager, 
                                  torrent: TorrentFile, 
-                                 peer: Dict[str, str]):
+                                 peer: Dict[str, str],
+                                 pbar: tqdm_asyncio):
         """
         Args:
             peer (Dict[str, Any]): 
@@ -305,6 +304,8 @@ class TorrentPeer:
                 piece = await reader.read(response_len)
                 logging.info(f"Received piece from {peer}")
                 await piece_manager.receive_piece(piece)
+                pbar.update(1)
+                pbar.refresh()
             
                 logging.info("Download successfully!")
         except asyncio.TimeoutError:
@@ -321,29 +322,33 @@ class TorrentPeer:
                 writer.close()
                 await writer.wait_closed()
 
-    async def download(self, torrent_filepath: str, output_dir: str = None):
+    async def download(self, torrent_filepath: str, pbar_position: int, output_dir: str = None):
         output_dir = output_dir or DOWNLOAD_DIR
         torrent = TorrentFile(torrent_filepath)
         print(f"Start downloading {torrent.info_hash}")
 
         piece_manager = PieceManager(torrent, output_dir)
-        try:
-            while not piece_manager.completed:
-                peers = self.get_peers(torrent_filepath)
-                for peer in peers:
-                    if peer not in piece_manager.active_peers:
-                        asyncio.create_task(self.download_from_peer(piece_manager, torrent, peer))
-                await asyncio.sleep(5)
-        except Exception as e:
-            print("Exception occured at download function", e)
+        total_pieces = len(piece_manager.pieces_status)
+        with tqdm_asyncio(total=total_pieces, desc=f"Downloading {torrent.info_hash[:6]}", position=pbar_position) as pbar:
+            try:
+                while not piece_manager.completed:
+                    peers = self.get_peers(torrent_filepath)
+                    for peer in peers:
+                        if peer not in piece_manager.active_peers:
+                            asyncio.create_task(self.download_from_peer(piece_manager, torrent, peer, pbar))
+                    await asyncio.sleep(INTERVAL)
+            except Exception as e:
+                print("Exception occured at download function", e)
 
     async def start_leeching(self):
         try: 
+            pbar_pos = -1
             while True:
                 if not self.torrent_queue.empty():
                     torrent_filepath = await self.torrent_queue.get()
                     logging.info(f"Start downloading torrent of {torrent_filepath}")
-                    asyncio.create_task(self.download(torrent_filepath))
+                    pbar_pos += 1
+                    asyncio.create_task(self.download(torrent_filepath, pbar_pos))
                 await asyncio.sleep(0.1)
         except KeyboardInterrupt:
             logging.info("Program terminated using Ctr+C")
