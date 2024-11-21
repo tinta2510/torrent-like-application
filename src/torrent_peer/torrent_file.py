@@ -4,9 +4,7 @@ import hashlib
 import time
 from typing import List, Tuple
 import bencodepy
-import logging
 from torrent_peer.utils import get_unique_filename
-logging.basicConfig(level=logging.DEBUG)
 
 class TorrentFile:
     """
@@ -219,8 +217,6 @@ class TorrentFile:
         output_path = get_unique_filename(output_path)
         with open(output_path, 'wb') as torrent_file:
             torrent_file.write(encoded_data)
-
-        logging.info(f"Torrent file created: {output_path}")
         return output_path
 
     @classmethod

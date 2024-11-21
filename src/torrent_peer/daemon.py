@@ -1,20 +1,21 @@
 from quart import Quart, request, jsonify
 import os
-import configparser
 from random import randint
 import asyncio
 import logging
 from torrent_peer.peer import TorrentPeer
-import tqdm
-CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-CONFIG_PATH = os.path.join(CURRENT_DIR, "../config.ini")
-config = configparser.ConfigParser()
-config.read(CONFIG_PATH)
-TRACKER_URL = config["peer"]["TRACKER_URL"]
-TORRENT_DIR = os.path.join(CURRENT_DIR, config["peer"]["TORRENT_DIR"])
-DOWNLOAD_DIR = os.path.join(CURRENT_DIR, config["peer"]["DOWNLOAD_DIR"])
+from torrent_peer.config_loader import TORRENT_DIR, DOWNLOAD_DIR, LOG_DIR, TRACKER_URL
+
 os.makedirs(TORRENT_DIR, exist_ok=True)
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+os.makedirs(LOG_DIR, exist_ok=True)
+
+# Configure logging
+logging.basicConfig(
+    filename=f'./{LOG_DIR}/logfile.log',  # Name of the log file
+    level=logging.DEBUG,     # Log all levels (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+    format='%(asctime)s - %(levelname)s - %(message)s'  # Log format
+)
 
 app = Quart(__name__)
 peer = TorrentPeer(randint(1025, 60000))
@@ -39,7 +40,7 @@ async def seed():
             name=data.get("name", ""),
             description=data.get("description", "")
         )
-        return jsonify({"message": "Seeding started"}), 200
+        return jsonify({"message": f"Start seeding {input_path}"}), 200
     except FileNotFoundError as e:
         return jsonify({"error": "File not found error.",
                         "details": f"{input_path} doesn't exist"}), 400
@@ -61,7 +62,7 @@ async def leech():
             'details': "Torrent File not exists."
         }), 400
     await peer.torrent_queue.put(torrent_filepath)
-    return jsonify({"message": "Added file to be downloaded successfully"}), 200
+    return jsonify({"message": "File is downloading."}), 200
 
 @app.route("/torrents", methods=["GET"])
 async def get_torrents():
@@ -89,7 +90,7 @@ def get_torrent_by_info_hash(info_hash):
 @app.before_serving
 async def run_background_tasks():
     # Start peer tasks
-    print("Start peer tasks.")
+    logging.info("Start peer tasks.")
     asyncio.create_task(peer.start_seeding())
     asyncio.create_task(peer.start_leeching())
 
@@ -97,7 +98,7 @@ def main():
     try:
         app.run(port=randint(1025, 5000))
     except KeyboardInterrupt:
-        print("Catch Ctrl+C")
+        logging.info("Catch Ctrl+C")
 
 if __name__ == '__main__':
     main()

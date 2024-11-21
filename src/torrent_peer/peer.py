@@ -13,18 +13,13 @@ from torrent_peer.piece_manager import PieceManager
 from torrent_peer.torrent_file import TorrentFile
 from torrent_peer.utils import get_unique_filename
 from torrent_peer.peer_message import Handshake, Piece
+from torrent_peer.config_loader import TRACKER_URL, TORRENT_DIR, DOWNLOAD_DIR, INTERVAL, LOG_DIR
 
-# logging.basicConfig(level=# logging.debug)
-
-# READ data from configuration file 
-CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-CONFIG_PATH = os.path.join(CURRENT_DIR, "../config.ini")
-config = configparser.ConfigParser()
-config.read(CONFIG_PATH)
-TRACKER_URL = config["peer"]["TRACKER_URL"]
-TORRENT_DIR = os.path.join(CURRENT_DIR, config["peer"]["TORRENT_DIR"])
-DOWNLOAD_DIR = os.path.join(CURRENT_DIR, config["peer"]["DOWNLOAD_DIR"])
-INTERVAL = int(config["peer"]["INTERVAL"])
+logging.basicConfig(
+    filename=f'./{LOG_DIR}/logfile.log',  # Name of the log file
+    level=logging.DEBUG,     # Log all levels (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+    format='%(asctime)s - %(levelname)s - %(message)s'  # Log format
+)
 
 class TorrentPeer:
     def __init__(self, port: int = None):
@@ -309,13 +304,13 @@ class TorrentPeer:
             
                 logging.info("Download successfully!")
         except asyncio.TimeoutError:
-            print(f"Connection to {peer} attempt timed out.")
+             logging.info(f"Connection to {peer} attempt timed out.")
         except ConnectionRefusedError:
-            print(f"Connection to {peer} was refused by the peer.")
+             logging.info(f"Connection to {peer} was refused by the peer.")
         except asyncio.IncompleteReadError:
-            print(f"Failed to read data from the peer {peer}.")
+             logging.info(f"Failed to read data from the peer {peer}.")
         except Exception as e:
-            print(f"An unexpected error occurred at download_from_peer: {e}")
+             logging.info(f"An unexpected error occurred at download_from_peer: {e}")
         finally:
             piece_manager.active_peers.remove(peer)
             if writer:
@@ -325,11 +320,11 @@ class TorrentPeer:
     async def download(self, torrent_filepath: str, pbar_position: int, output_dir: str = None):
         output_dir = output_dir or DOWNLOAD_DIR
         torrent = TorrentFile(torrent_filepath)
-        print(f"Start downloading {torrent.info_hash}")
+        logging.info(f"Start downloading {torrent.info_hash}")
 
         piece_manager = PieceManager(torrent, output_dir)
         total_pieces = len(piece_manager.pieces_status)
-        with tqdm_asyncio(total=total_pieces, desc=f"Downloading {torrent.info_hash[:6]}", position=pbar_position) as pbar:
+        with tqdm_asyncio(total=total_pieces, desc=f"Downloading {torrent.info_hash[:6]}", position=pbar_position, leave=False) as pbar:
             try:
                 while not piece_manager.completed:
                     peers = self.get_peers(torrent_filepath)
@@ -338,7 +333,7 @@ class TorrentPeer:
                             asyncio.create_task(self.download_from_peer(piece_manager, torrent, peer, pbar))
                     await asyncio.sleep(INTERVAL)
             except Exception as e:
-                print("Exception occured at download function", e)
+                 logging.info("Exception occured at download function", e)
 
     async def start_leeching(self):
         try: 
@@ -349,7 +344,7 @@ class TorrentPeer:
                     logging.info(f"Start downloading torrent of {torrent_filepath}")
                     pbar_pos += 1
                     asyncio.create_task(self.download(torrent_filepath, pbar_pos))
-                await asyncio.sleep(0.1)
+                await asyncio.sleep(0.2)
         except KeyboardInterrupt:
             logging.info("Program terminated using Ctr+C")
         except Exception as e:

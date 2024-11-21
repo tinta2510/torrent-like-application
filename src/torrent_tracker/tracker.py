@@ -116,6 +116,9 @@ async def insert_torrent(
 async def get_all_torrents():
     with open(TORRENT_FILE, "r") as f:
         data = json.load(f)
+    for key in data:
+        if "file_path" in data[key]:
+            del data[key]["file_path"]
     return data
 
 @app.get("/torrents/{info_hash}")

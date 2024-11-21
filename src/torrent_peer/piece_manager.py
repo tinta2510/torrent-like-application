@@ -2,20 +2,19 @@ from torrent_peer.torrent_file import TorrentFile
 from typing import List, Dict, Any
 import struct
 import logging
-import configparser
 import os
 from torrent_peer.peer_message import Request, PeerMessage
 from enum import Enum
 import hashlib
 import aiofiles
 from torrent_peer.utils import get_unique_filename
+from torrent_peer.config_loader import LOG_DIR
 
-# logging.basicConfig(level=logging.INFO)
-
-# Create a parser
-config = configparser.ConfigParser()
-# Read the config file
-config.read('../config.ini')
+logging.basicConfig(
+    filename=f'./{LOG_DIR}/logfile.log',  # Name of the log file
+    level=logging.DEBUG,     # Log all levels (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+    format='%(asctime)s - %(levelname)s - %(message)s'  # Log format
+)
 
 class PieceStatus(Enum):
     EMPTY = 0

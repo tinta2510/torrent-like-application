@@ -16,9 +16,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
 import struct
 import bitstring
+
 class PeerMessage:
     """
     A message between two peers.
@@ -127,10 +127,8 @@ class Handshake(PeerMessage):
     @classmethod
     def is_valid(cls, data: bytes):
         if len(data) != 68:
-            logging.debug("len 68!!!")
             return False
         if data[:1] != struct.pack("!B", 19) or data[1:20] != b'BitTorrent protocol':
-            logging.debug("Not bit torrent msg")
             return False
         return True
 
@@ -357,7 +355,6 @@ class Piece(PeerMessage):
 
     def encode(self):
         message_length = Piece.length + len(self.block)
-        logging.debug(f"mesg_len {message_length}" )
         return struct.pack('>IbII' + str(len(self.block)) + 's',
                            message_length,
                            PeerMessage.Piece,
