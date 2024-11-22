@@ -1,0 +1,11 @@
+aiofiles
+bencodepy
+bitstring
+click
+InquirerPy
+quart
+requests
+tabulate
+tqdm
+fastapi
+uvicorn

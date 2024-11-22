@@ -16,6 +16,9 @@ PEER_FILE = os.path.join(CURRENT_DIR, config["tracker"]["PEER_FILE"])
 TORRENT_FILE = os.path.join(CURRENT_DIR, config["tracker"]["TORRENT_FILE"])
 os.makedirs(TORRENT_DIR, exist_ok=True)
 
+with open(PEER_FILE, "w") as file:
+    json.dump({}, file)
+
 app = FastAPI()
 
 # Exception response

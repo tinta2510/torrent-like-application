@@ -5,7 +5,17 @@ setup(
     version="0.1",
     packages=find_packages(),
     install_requires=[
-        "uvicorn",  # Ensure uvicorn is installed with the package
+        "aiofiles",
+        "bencodepy",
+        "bitstring",
+        "click",
+        "InquirerPy",
+        "quart",
+        "requests",  
+        "tabulate",
+        "tqdm",
+        "fastapi",
+        "uvicorn",
     ],
     entry_points={
         "console_scripts": [

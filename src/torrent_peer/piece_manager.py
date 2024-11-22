@@ -1,7 +1,6 @@
 from torrent_peer.torrent_file import TorrentFile
-from typing import List, Dict, Any
+from typing import List
 import struct
-import logging
 import os
 from torrent_peer.peer_message import Request, PeerMessage
 from enum import Enum
