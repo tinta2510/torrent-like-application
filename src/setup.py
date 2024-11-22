@@ -13,7 +13,8 @@ setup(
             "torrent_tracker=torrent_tracker.main:main",
             "torrent_seed=torrent_peer.torrent_cli:seed",
             "torrent_fetch=torrent_peer.torrent_cli:get_torrent",
-            "torrent_leech=torrent_peer.torrent_cli:leech"
+            "torrent_leech=torrent_peer.torrent_cli:leech",
+            "torrent_status=torrent_peer.torrent_cli:status"
         ],
     },
 )

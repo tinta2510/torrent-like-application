@@ -51,6 +51,13 @@ class PieceManager:
             with open(self.output_name, "wb") as file:
                 file.truncate(length)
 
+    @property
+    def percent_of_downloaded(self):
+        """Calculate the percentage of EMPTY pieces."""
+        total_pieces = len(self.pieces_status)
+        empty_pieces = self.pieces_status.count(PieceStatus.EMPTY)
+        return (1 - empty_pieces / total_pieces) * 100 if total_pieces > 0 else 0
+
     def get_request_msg(self) -> Request:
         piece_length = self.torrent.piece_length
         length = self.total_length if self.haveMultiFile \

@@ -11,7 +11,7 @@ import aiofiles
 from tqdm.asyncio import tqdm_asyncio
 from torrent_peer.piece_manager import PieceManager
 from torrent_peer.torrent_file import TorrentFile
-from torrent_peer.utils import get_unique_filename
+from torrent_peer.utils import get_unique_filename, get_local_ip
 from torrent_peer.peer_message import Handshake, Piece
 from torrent_peer.config_loader import TRACKER_URL, TORRENT_DIR, DOWNLOAD_DIR, INTERVAL, LOG_DIR
 
@@ -24,7 +24,18 @@ logging.basicConfig(
 class TorrentPeer:
     def __init__(self, port: int = None):
         self.port = port or 0 # 0: Find any available port
-        # self.local_ip = get_local_ip() ???
+        self.local_ip = get_local_ip()
+        # Containts torrents to be seeded
+        # {
+        #     <info_hash_1>: {
+        #         "filepath": "<filepath>"
+        #         "torrent_filepath": "<torrent_filepath>"
+        #     },
+        #     <info_hash_2>: {
+        #         "filepath": "<filepath>"
+        #         "torrent_filepath": "<torrent_filepath>"
+        #     }
+        # }
         self.seeding_torrents = {}
         self.leeching_torrents: Dict[bytes, PieceManager] = {}
         self.torrent_queue: asyncio.Queue = asyncio.Queue()

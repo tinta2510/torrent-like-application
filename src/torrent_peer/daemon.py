@@ -21,8 +21,23 @@ app = Quart(__name__)
 peer = TorrentPeer(randint(1025, 60000))
 
 @app.route("/")
-def status():
+def get_server_status():
     return jsonify({"status": "OK"}), 200
+
+@app.route("/status")
+def get_status():
+    status = {}
+
+    status["seeding"] =[[
+            info_hash, 
+            value["filepath"]
+        ] for info_hash, value in peer.seeding_torrents.items()]
+    status["leeching"] = [[
+            info_hash, 
+            piece_manager.output_name, 
+            piece_manager.percent_of_downloaded
+        ] for info_hash, piece_manager in peer.leeching_torrents.items()]
+    return jsonify(status), 200
 
 @app.route("/seed", methods=["POST"])
 async def seed():
