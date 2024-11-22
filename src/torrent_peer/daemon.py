@@ -5,14 +5,14 @@ import asyncio
 import logging
 from torrent_peer.peer import TorrentPeer
 from torrent_peer.config_loader import TORRENT_DIR, DOWNLOAD_DIR, LOG_DIR, TRACKER_URL
-
+import time
 os.makedirs(TORRENT_DIR, exist_ok=True)
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 os.makedirs(LOG_DIR, exist_ok=True)
 
 # Configure logging
 logging.basicConfig(
-    filename=f'./{LOG_DIR}/logfile.log',  # Name of the log file
+    # filename=f'./{LOG_DIR}/logfile.log',  # Name of the log file
     level=logging.CRITICAL,     # Log all levels (DEBUG, INFO, WARNING, ERROR, CRITICAL)
     format='%(asctime)s - %(levelname)s - %(message)s'  # Log format
 )
@@ -76,7 +76,6 @@ async def leech():
             'error': "File not found error.",
             'details': "Torrent File not exists."
         }), 400
-    global pbar_pos
     pbar_pos += 1
     asyncio.create_task(peer.download(torrent_filepath, pbar_pos%10))
     return jsonify({"message": "File is downloading."}), 200
@@ -106,14 +105,12 @@ async def get_torrent_by_info_hash(info_hash):
 
 @app.before_serving
 async def run_background_tasks():
-    # Start peer tasks
-    asyncio.create_task(peer.start_seeding())
+    # asyncio.create_task(peer.start_seeding())
+    pass
 
 def main():
-    try:
-        app.run(port=randint(1025, 5000))
-    except KeyboardInterrupt:
-        logging.info("Catch Ctrl+C")
+    app.run(port=randint(1025, 5000))
+
 
 if __name__ == '__main__':
     main()

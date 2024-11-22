@@ -38,7 +38,6 @@ class TorrentPeer:
         # }
         self.seeding_torrents = {}
         self.leeching_torrents: Dict[bytes, PieceManager] = {}
-        self.torrent_queue: asyncio.Queue = asyncio.Queue()
 
     def _send_request_to_tracker(self, torrent_filepath: str, event: str = None) -> requests.Response:
         torrent = TorrentFile(torrent_filepath)
@@ -345,21 +344,6 @@ class TorrentPeer:
                     await asyncio.sleep(INTERVAL)
             except Exception as e:
                  logging.info("Exception occured at download function", e)
-
-    # async def start_leeching(self):
-    #     try: 
-    #         pbar_pos = -1
-    #         while True:
-    #             if not self.torrent_queue.empty():
-    #                 torrent_filepath = await self.torrent_queue.get()
-    #                 logging.info(f"Start downloading torrent of {torrent_filepath}")
-    #                 pbar_pos += 1
-                    
-    #             await asyncio.sleep(0.5)
-    #     except KeyboardInterrupt:
-    #         logging.info("Program terminated using Ctr+C")
-    #     except Exception as e:
-    #         logging.info("Exception appeared when start server", e)
 
     async def start_seeding(self):
         try:
