@@ -4,15 +4,19 @@ from tabulate import tabulate
 from InquirerPy import inquirer
 
 @click.command()
-@click.option('--port', type=int, required=True, help="Choost port number of torrent daemon")
-@click.option('--input-path', 
+@click.option('--port', type=int, default=5000, help="Choost port number of torrent daemon")
+@click.option('--input', 
+              'input_path',
               type=click.Path(exists=True, file_okay=True, dir_okay=True),
               help="Path to file that needs seeding.",
               required=True)
 @click.option('--trackers', default=None, help="List of list of tracker URL(comma-separated)")
 @click.option('--public', default=None, help="Public the torrent file or not")
 @click.option('--piece-length', default=None, type=int, help="Piece length for the torrent file.")
-@click.option('--torrent-filepath', default=None, help="Path to save the generated torrent file.")
+@click.option('--torrent', 
+              'torrent_filepath',
+              default=None, 
+              help="Path to save the generated torrent file.")
 @click.option('--name', default=None, help="Name of the torrent.")
 @click.option('--description', default=None, help="Description of the torrent.")
 def seed(port, input_path, trackers, public, piece_length, torrent_filepath, name, description):
@@ -60,8 +64,9 @@ def get_torrent(port):
         click.echo(f"Selected file: {info_hash}")
 
         response = requests.get(url + "/" + info_hash)
+        data = response.json()["data"]
         response.raise_for_status()
-        click.echo(f"Download torrent file {info_hash} successfully.")
+        click.echo(f"Download torrent file {info_hash} successfully.\nFilepath: {data}")
     except requests.exceptions.ConnectionError as e:
         click.echo(f"[ERROR] Run torrent_daemon and verify port number.")
     except requests.exceptions.Timeout as http_err:
@@ -72,7 +77,8 @@ def get_torrent(port):
 @click.command()
 @click.option('--port', type=int, required=True, help="Port number of the torrent server.")
 @click.option(
-    '--torrent-filepath',
+    '--torrent',
+    'torrent_filepath',
     type=click.Path(exists=True, file_okay=True, dir_okay=False),
     required=True,
     help="Path to the torrent file that needs leeching."
@@ -83,7 +89,7 @@ def leech(port, torrent_filepath):
     try:
         response = requests.post(url, json=payload, timeout=3)
         response.raise_for_status()
-        click.echo(f"{response.json()["message"]}")
+        click.echo(f"{response.json()["message"]} ")
     except requests.exceptions.ConnectionError as e:
         click.echo(f"[ERROR] Run torrent_daemon and verify port number.") 
     except requests.exceptions.Timeout as http_err:
@@ -131,7 +137,6 @@ def test(port):
 
     try:
         # Send a GET request
-        print("Send requests")
         response = requests.get(url)
         response.raise_for_status()  # Raise an error for HTTP errors
         click.echo(response.json())

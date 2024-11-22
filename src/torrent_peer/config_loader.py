@@ -8,5 +8,4 @@ config.read(CONFIG_PATH)
 TRACKER_URL = config["peer"]["TRACKER_URL"]
 TORRENT_DIR = os.path.join(CURRENT_DIR, config["peer"]["TORRENT_DIR"])
 DOWNLOAD_DIR = os.path.join(CURRENT_DIR, config["peer"]["DOWNLOAD_DIR"])
-LOG_DIR = os.path.join(CURRENT_DIR, config["peer"]["LOG_DIR"])
 INTERVAL = int(config["peer"]["INTERVAL"])

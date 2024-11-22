@@ -4,18 +4,10 @@ from random import randint
 import asyncio
 import logging
 from torrent_peer.peer import TorrentPeer
-from torrent_peer.config_loader import TORRENT_DIR, DOWNLOAD_DIR, LOG_DIR, TRACKER_URL
-import time
+from torrent_peer.config_loader import TORRENT_DIR, DOWNLOAD_DIR, TRACKER_URL
+import click
 os.makedirs(TORRENT_DIR, exist_ok=True)
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
-os.makedirs(LOG_DIR, exist_ok=True)
-
-# Configure logging
-logging.basicConfig(
-    # filename=f'./{LOG_DIR}/logfile.log',  # Name of the log file
-    level=logging.CRITICAL,     # Log all levels (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-    format='%(asctime)s - %(levelname)s - %(message)s'  # Log format
-)
 
 app = Quart(__name__)
 peer = TorrentPeer(randint(1025, 60000))
@@ -55,7 +47,7 @@ async def seed():
             name=data.get("name", ""),
             description=data.get("description", "")
         )
-        return jsonify({"message": f"Start seeding {input_path}"}), 200
+        return jsonify({"message": f"Start seeding {input_path}..."}), 200
     except FileNotFoundError as e:
         return jsonify({"error": "File not found error.",
                         "details": f"{input_path} doesn't exist"}), 400
@@ -76,9 +68,10 @@ async def leech():
             'error': "File not found error.",
             'details': "Torrent File not exists."
         }), 400
+    global pbar_pos
     pbar_pos += 1
     asyncio.create_task(peer.download(torrent_filepath, pbar_pos%10))
-    return jsonify({"message": "File is downloading."}), 200
+    return jsonify({"message": "File is downloading..."}), 200
 
 @app.route("/torrents", methods=["GET"])
 async def get_torrents():
@@ -105,12 +98,13 @@ async def get_torrent_by_info_hash(info_hash):
 
 @app.before_serving
 async def run_background_tasks():
-    # asyncio.create_task(peer.start_seeding())
-    pass
+    asyncio.create_task(peer.start_seeding())
 
-def main():
-    app.run(port=randint(1025, 5000))
-
+@click.command()
+@click.option("--port", "port", default=None, help="Running port for torrent daemon")
+def main(port):
+    print(f"Running torrent daemon on port {5000 or port}")
+    app.run(port=port or 5000)
 
 if __name__ == '__main__':
     main()

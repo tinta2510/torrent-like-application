@@ -8,13 +8,6 @@ from enum import Enum
 import hashlib
 import aiofiles
 from torrent_peer.utils import get_unique_filename
-from torrent_peer.config_loader import LOG_DIR
-
-logging.basicConfig(
-    filename=f'./{LOG_DIR}/logfile.log',  # Name of the log file
-    level=logging.CRITICAL,     # Log all levels (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-    format='%(asctime)s - %(levelname)s - %(message)s'  # Log format
-)
 
 class PieceStatus(Enum):
     EMPTY = 0
@@ -79,12 +72,10 @@ class PieceManager:
     async def write_piece_to_file(self, index, data):
         piece_length = self.torrent.piece_length
         if self.haveMultiFile:
-            logging.debug("Checkpoint")
             lower_offset = index * piece_length
             upper_offset = lower_offset + len(data) - 1
             curr = 0
             for (path, file_length, upper_limit) in self.file_limit:
-                logging.debug("Loop check")
                 if lower_offset + curr >= upper_limit:
                     continue
                 writing_position = lower_offset + curr - upper_limit + file_length
@@ -92,14 +83,12 @@ class PieceManager:
                     async with aiofiles.open(os.path.join(self.output_name, path), "rb+") as file:
                         await file.seek(writing_position)
                         await file.write(data[curr:])
-                    logging.debug(f"Write to {path} at {writing_position} with length {len(data[curr:])}")
                     break
                 else:
                     writing_length = upper_limit - (lower_offset + curr)
                     async with aiofiles.open(os.path.join(self.output_name, path), "rb+") as file:
                         await file.seek(writing_position)
                         await file.write(data[curr:curr+writing_length])
-                    logging.debug(f"Write to {path} at {writing_position} with length {writing_length}")
                     curr += writing_length     
         else:
             async with aiofiles.open(self.output_name, "rb+") as file:
@@ -115,9 +104,9 @@ class PieceManager:
         if not self.validate_received_piece(data, index):
             raise Exception("Not expected piece.")
         
-        logging.info("Received piece")
         await self.write_piece_to_file(index, data)    
 
         self.pieces_status[index] = PieceStatus.DOWNLOADED
         self.completed = all([x == PieceStatus.DOWNLOADED for x in self.pieces_status])
  
+        return index
