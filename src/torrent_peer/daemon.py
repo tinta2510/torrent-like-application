@@ -19,7 +19,7 @@ logging.basicConfig(
 
 app = Quart(__name__)
 peer = TorrentPeer(randint(1025, 60000))
-
+pbar_pos = -1
 @app.route("/")
 def get_server_status():
     return jsonify({"status": "OK"}), 200
@@ -76,7 +76,9 @@ async def leech():
             'error': "File not found error.",
             'details': "Torrent File not exists."
         }), 400
-    await peer.torrent_queue.put(torrent_filepath)
+    global pbar_pos
+    pbar_pos += 1
+    asyncio.create_task(peer.download(torrent_filepath, pbar_pos%10))
     return jsonify({"message": "File is downloading."}), 200
 
 @app.route("/torrents", methods=["GET"])
@@ -105,9 +107,7 @@ async def get_torrent_by_info_hash(info_hash):
 @app.before_serving
 async def run_background_tasks():
     # Start peer tasks
-    logging.info("Start peer tasks.")
     asyncio.create_task(peer.start_seeding())
-    asyncio.create_task(peer.start_leeching())
 
 def main():
     try:

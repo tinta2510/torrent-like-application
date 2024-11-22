@@ -346,20 +346,20 @@ class TorrentPeer:
             except Exception as e:
                  logging.info("Exception occured at download function", e)
 
-    async def start_leeching(self):
-        try: 
-            pbar_pos = -1
-            while True:
-                if not self.torrent_queue.empty():
-                    torrent_filepath = await self.torrent_queue.get()
-                    logging.info(f"Start downloading torrent of {torrent_filepath}")
-                    pbar_pos += 1
-                    asyncio.create_task(self.download(torrent_filepath, pbar_pos))
-                await asyncio.sleep(0.5)
-        except KeyboardInterrupt:
-            logging.info("Program terminated using Ctr+C")
-        except Exception as e:
-            logging.info("Exception appeared when start server", e)
+    # async def start_leeching(self):
+    #     try: 
+    #         pbar_pos = -1
+    #         while True:
+    #             if not self.torrent_queue.empty():
+    #                 torrent_filepath = await self.torrent_queue.get()
+    #                 logging.info(f"Start downloading torrent of {torrent_filepath}")
+    #                 pbar_pos += 1
+                    
+    #             await asyncio.sleep(0.5)
+    #     except KeyboardInterrupt:
+    #         logging.info("Program terminated using Ctr+C")
+    #     except Exception as e:
+    #         logging.info("Exception appeared when start server", e)
 
     async def start_seeding(self):
         try:
