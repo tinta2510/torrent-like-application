@@ -1,5 +1,5 @@
 """Module for Torrent Peer class"""
-import configparser
+import aiofiles
 import os
 from typing import List, Dict, Any
 import requests
@@ -17,7 +17,7 @@ from torrent_peer.config_loader import TRACKER_URL, TORRENT_DIR, DOWNLOAD_DIR, I
 
 logging.basicConfig(
     filename=f'./{LOG_DIR}/logfile.log',  # Name of the log file
-    level=logging.DEBUG,     # Log all levels (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+    level=logging.CRITICAL,     # Log all levels (DEBUG, INFO, WARNING, ERROR, CRITICAL)
     format='%(asctime)s - %(levelname)s - %(message)s'  # Log format
 )
 
@@ -226,15 +226,15 @@ class TorrentPeer:
             raise Exception("Error occured during getting torrents from tracker") from e
 
     @staticmethod
-    def get_torrent_by_info_hash(info_hash: bytes):
+    async def get_torrent_by_info_hash(info_hash: bytes):
         try:
             response = requests.get(TRACKER_URL + f"/torrents/{info_hash}")
             response.raise_for_status()
             
             torrent_filepath = os.path.join(DOWNLOAD_DIR, str(uuid4()))
 
-            with open(torrent_filepath, "wb") as f:
-                f.write(response.content)
+            async with aiofiles.open(torrent_filepath, "wb") as f:
+                await f.write(response.content)
 
             filename = TorrentFile(torrent_filepath).filename + ".torrent"
 
@@ -355,7 +355,7 @@ class TorrentPeer:
                     logging.info(f"Start downloading torrent of {torrent_filepath}")
                     pbar_pos += 1
                     asyncio.create_task(self.download(torrent_filepath, pbar_pos))
-                await asyncio.sleep(0.2)
+                await asyncio.sleep(0.5)
         except KeyboardInterrupt:
             logging.info("Program terminated using Ctr+C")
         except Exception as e:

@@ -13,7 +13,7 @@ os.makedirs(LOG_DIR, exist_ok=True)
 # Configure logging
 logging.basicConfig(
     filename=f'./{LOG_DIR}/logfile.log',  # Name of the log file
-    level=logging.DEBUG,     # Log all levels (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+    level=logging.CRITICAL,     # Log all levels (DEBUG, INFO, WARNING, ERROR, CRITICAL)
     format='%(asctime)s - %(levelname)s - %(message)s'  # Log format
 )
 
@@ -29,11 +29,11 @@ def get_status():
     status = {}
 
     status["seeding"] =[[
-            info_hash, 
+            info_hash.hex(), 
             value["filepath"]
         ] for info_hash, value in peer.seeding_torrents.items()]
     status["leeching"] = [[
-            info_hash, 
+            info_hash.hex(), 
             piece_manager.output_name, 
             piece_manager.percent_of_downloaded
         ] for info_hash, piece_manager in peer.leeching_torrents.items()]
@@ -93,9 +93,9 @@ async def get_torrents():
         return jsonify({"error": "An unexpected error occurred"}), 500
 
 @app.route("/torrents/<string:info_hash>", methods=["GET"])
-def get_torrent_by_info_hash(info_hash):
+async def get_torrent_by_info_hash(info_hash):
     try:
-        file_path = TorrentPeer.get_torrent_by_info_hash(info_hash)
+        file_path = await TorrentPeer.get_torrent_by_info_hash(info_hash)
         return jsonify({"data": file_path}), 200
     except Exception as e:
         # Catch-all for any other unanticipated exceptions

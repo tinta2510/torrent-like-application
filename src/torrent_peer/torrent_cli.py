@@ -110,13 +110,31 @@ def status(port):
         )
 
         leeching_data: list = data["leeching"]
-        click.echo("SEEDING FILES:")
+        click.echo("LEECHING FILES:")
         click.echo(tabulate(
             leeching_data,
             headers=["info_hash", "filepath", "status"],
             tablefmt="grid"
         ))
         
+    except requests.exceptions.ConnectionError as e:
+        click.echo(f"[ERROR] Run torrent_daemon and verify port number.")
+    except requests.exceptions.Timeout as http_err:
+        click.echo(f"[ERROR] Run torrent_daemon and verify port number.") 
+    except Exception as err:
+        click.echo(f"An error occurred: {err}")
+
+@click.command()
+@click.option('--port', type=int, required=True, help="Port number of the torrent server.")
+def test(port):
+    url = f"http://localhost:{port}"
+
+    try:
+        # Send a GET request
+        print("Send requests")
+        response = requests.get(url)
+        response.raise_for_status()  # Raise an error for HTTP errors
+        click.echo(response.json())
     except requests.exceptions.ConnectionError as e:
         click.echo(f"[ERROR] Run torrent_daemon and verify port number.")
     except requests.exceptions.Timeout as http_err:

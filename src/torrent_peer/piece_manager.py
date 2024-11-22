@@ -12,7 +12,7 @@ from torrent_peer.config_loader import LOG_DIR
 
 logging.basicConfig(
     filename=f'./{LOG_DIR}/logfile.log',  # Name of the log file
-    level=logging.DEBUG,     # Log all levels (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+    level=logging.CRITICAL,     # Log all levels (DEBUG, INFO, WARNING, ERROR, CRITICAL)
     format='%(asctime)s - %(levelname)s - %(message)s'  # Log format
 )
 

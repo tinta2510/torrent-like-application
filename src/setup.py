@@ -14,7 +14,8 @@ setup(
             "torrent-seed=torrent_peer.torrent_cli:seed",
             "torrent-fetch=torrent_peer.torrent_cli:get_torrent",
             "torrent-leech=torrent_peer.torrent_cli:leech",
-            "torrent-status=torrent_peer.torrent_cli:status"
+            "torrent-status=torrent_peer.torrent_cli:status",
+            "torrent-test=torrent_peer.torrent_cli:test"
         ],
     },
 )

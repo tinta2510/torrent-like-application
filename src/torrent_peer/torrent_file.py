@@ -121,21 +121,6 @@ class TorrentFile:
         pieces = []
         file_list = []
         total_data = b''
-        # def process_file(full_path, relative_path):
-        #     """
-        #     Process each file by reading its data in chunks and generating SHA-1 hashes.
-        #     """
-        #     with open(full_path, 'rb') as f:
-        #         while True:
-        #             piece = f.read(piece_length)
-        #             if not piece:
-        #                 break
-        #             sha1 = hashlib.sha1(piece).digest()
-        #             pieces.append(sha1)         
-        #     file_list.append({
-        #         'length': os.path.getsize(full_path),
-        #         'path': relative_path
-        #     })
 
         # Traverse the directory and process each file
         for root, _, files in os.walk(dir_path):
