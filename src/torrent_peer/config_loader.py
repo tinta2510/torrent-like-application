@@ -9,3 +9,4 @@ TRACKER_URL = config["peer"]["TRACKER_URL"]
 TORRENT_DIR = os.path.join(CURRENT_DIR, config["peer"]["TORRENT_DIR"])
 DOWNLOAD_DIR = os.path.join(CURRENT_DIR, config["peer"]["DOWNLOAD_DIR"])
 INTERVAL = int(config["peer"]["INTERVAL"])
+PORT = int(config["peer"]["PORT"])

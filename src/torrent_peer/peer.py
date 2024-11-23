@@ -37,9 +37,9 @@ class TorrentPeer:
         torrent = TorrentFile(torrent_filepath)
         tracker_url = torrent.tracker_url
         params = {
-            "info_hash": torrent.info_hash.hex(), # ???
+            "info_hash": torrent.info_hash.hex(), 
             "port": self.port,
-            # "ip": self.local_ip ??
+            "ip": self.local_ip 
         }
         
         if event is not None:
@@ -63,7 +63,7 @@ class TorrentPeer:
             params = {
                 "info_hash": torrent.info_hash.hex(),
                 "port": self.port,
-                # "ip": self.local_ip ???
+                "ip": self.local_ip,
                 "event": "started"
             }
             try:

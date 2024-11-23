@@ -2,9 +2,13 @@ import click
 import requests
 from tabulate import tabulate
 from InquirerPy import inquirer
+import aiohttp
+import asyncio
+from torrent_peer.config_loader import PORT
+from torrent_peer.daemon import app
 
 @click.command()
-@click.option('--port', type=int, default=5000, help="Choost port number of torrent daemon")
+@click.option('--port', type=int, default=PORT, help="Choost port number of torrent daemon")
 @click.option('--input', 
               'input_path',
               type=click.Path(exists=True, file_okay=True, dir_okay=True),
@@ -42,7 +46,7 @@ def seed(port, input_path, trackers, public, piece_length, torrent_filepath, nam
         click.echo(f"An error occurred: {err}")
 
 @click.command()
-@click.option('--port', type=int, required=True, help="Choost port number of torrent daemon")
+@click.option('--port', type=int, default=PORT, help="Choost port number of torrent daemon")
 def get_torrent(port):
     url = f"http://localhost:{port}/torrents"
     try:
@@ -75,7 +79,7 @@ def get_torrent(port):
         click.echo(f"An error occurred: {err}")
 
 @click.command()
-@click.option('--port', type=int, required=True, help="Port number of the torrent server.")
+@click.option('--port', type=int, default=PORT, help="Port number of the torrent server.")
 @click.option(
     '--torrent',
     'torrent_filepath',
@@ -89,7 +93,7 @@ def leech(port, torrent_filepath):
     try:
         response = requests.post(url, json=payload, timeout=3)
         response.raise_for_status()
-        click.echo(f"{response.json()["message"]} ")
+        click.echo(f"{response.json()["message"]}\nGo to the torrent-daemon terminal to see details.")
     except requests.exceptions.ConnectionError as e:
         click.echo(f"[ERROR] Run torrent_daemon and verify port number.") 
     except requests.exceptions.Timeout as http_err:
@@ -98,7 +102,7 @@ def leech(port, torrent_filepath):
         click.echo(f"An error occurred: {err}")
 
 @click.command()
-@click.option('--port', type=int, required=True, help="Port number of the torrent server.")
+@click.option('--port', type=int, default=PORT, help="Port number of the torrent server.")
 def status(port):
     url = f"http://localhost:{port}/status"
     try:
@@ -131,7 +135,7 @@ def status(port):
         click.echo(f"An error occurred: {err}")
 
 @click.command()
-@click.option('--port', type=int, required=True, help="Port number of the torrent server.")
+@click.option('--port', type=int, default=PORT, help="Port number of the torrent server.")
 def test(port):
     url = f"http://localhost:{port}"
 

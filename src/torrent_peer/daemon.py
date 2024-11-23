@@ -101,10 +101,10 @@ async def run_background_tasks():
     asyncio.create_task(peer.start_seeding())
 
 @click.command()
-@click.option("--port", "port", default=None, help="Running port for torrent daemon")
+@click.option("--port", "port", default=5000, help="Running port for torrent daemon (default: 5000)")
 def main(port):
-    print(f"Running torrent daemon on port {5000 or port}")
-    app.run(port=port or 5000)
+    print(f"Running torrent daemon on port {port}")
+    app.run(port=port)
 
 if __name__ == '__main__':
     main()

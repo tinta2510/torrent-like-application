@@ -52,24 +52,27 @@ async def announce(
 ):
     public_ip = request.client.host # Get client IP
     with open(PEER_FILE, "r") as f:
-        peer_dict: Dict[str, List[Any]] = json.load(f) 
+        peer_dict = json.load(f) 
 
     peer_dict.setdefault(info_hash, []) 
 
-    # Update peer information
-    peer = {"ip": public_ip, "port": port}
-    if event=="started" and peer not in peer_dict[info_hash]:
-        peer_dict[info_hash].append(peer)
-    elif event == 'stopped':
-        peer_dict[info_hash] = [p for p in peer_dict[info_hash] if p != peer]
-    
-    # Update peer information in case a local ip is sent
-    if ip:
-        peer_2 = {"ip": ip, "port": port}
-        if event=="started" and peer_2 not in peer_dict[info_hash]:
-            peer_dict[info_hash].append(peer_2)
+
+    def update_peer_info(peer):
+        """
+        Function for update peer_dict
+
+        Args:
+        - peer: peer information
+            Example: { "ip": <ip>, "port": <port> }
+        """
+        if event=="started" and peer not in peer_dict[info_hash]:
+            peer_dict[info_hash].append(peer)
         elif event == 'stopped':
-            peer_dict[info_hash] = [p for p in peer_dict[info_hash] if p != peer_2]
+            peer_dict[info_hash] = [p for p in peer_dict[info_hash] if p != peer]
+    
+    update_peer_info({"ip": public_ip, "port": port})
+    if ip:
+        update_peer_info({"ip": ip, "port": port})
 
     # Respond with a list of peers for this torrent
     peers = get_peers(peer_dict, info_hash)
