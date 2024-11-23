@@ -49,7 +49,9 @@ class TorrentPeer:
             response.raise_for_status()  # Raise error if status is not 200
             return response
         except requests.exceptions.RequestException as e:
-            return None
+            tqdm.write(f"Error connecting to tracker.\nError: {e}")
+            raise Exception(e)
+        
     ##### For seeding - BEGIN #####
     def _upload_torrent_to_tracker(self, name: str, description: str, torrent_filepath: str):
         torrent = TorrentFile(torrent_filepath)
@@ -72,7 +74,7 @@ class TorrentPeer:
                 return response   
             except requests.exceptions.RequestException as e:
                 tqdm.write(f"Error connecting to tracker.\nError: {e}")
-                return None
+                raise Exception(e)
 
     def seed(self, input_path: str, 
                    trackers: List[List[str]], 

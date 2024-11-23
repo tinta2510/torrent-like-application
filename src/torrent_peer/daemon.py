@@ -53,7 +53,7 @@ async def seed():
         return jsonify({"error": "File not found error.",
                         "details": f"{input_path} doesn't exist"}), 400
     except Exception as e:
-        return jsonify({"error": e}), 500
+        return jsonify({"error": str(e)}), 500
     
 @app.route("/leech", methods=["POST"])  
 async def leech():
@@ -85,7 +85,7 @@ async def get_torrents():
     except Exception as e:
         # Catch-all for any other unanticipated exceptions
         logging.error(f"Unexpected error: {e}")  # Log the error for debugging
-        return jsonify({"error": "An unexpected error occurred"}), 500
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/torrents/<string:info_hash>", methods=["GET"])
 async def get_torrent_by_info_hash(info_hash):

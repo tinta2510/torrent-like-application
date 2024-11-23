@@ -5,7 +5,8 @@ import configparser
 import uuid
 import os
 import json
-
+import click
+import uvicorn
 # Read configuration
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH = os.path.join(CURRENT_DIR, "../config.ini")
@@ -142,3 +143,29 @@ async def get_torrent_by_info_hash(info_hash: str):
         filename = data[info_hash]["name"],
         media_type= "application/octet-stream"
     )
+@click.command()
+@click.option("--host", 
+              "-h", 
+              default="127.0.0.1", 
+              help=
+"""The host to bind the tracker to.\n
+- 127.0.0.1/localhost (default): Binds the application to localhost only.\n
+- 0.0.0.0: Makes the application accessible externally on your 
+local network or the internet (if no firewall blocks it).
+"""
+)
+@click.option("--port", 
+              "-p",
+              default=8000,
+              help="The binding port. (default: 8080)")
+def main(host, port):
+    """
+    Start the tracker.
+    """
+    uvicorn.run(app=app, 
+                host=host,
+                port=port,
+                reload=False)
+    
+if __name__ == "__main__":
+    main()
