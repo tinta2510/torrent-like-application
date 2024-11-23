@@ -3,6 +3,7 @@ import os
 from random import randint
 import asyncio
 import logging
+import uvicorn
 from torrent_peer.peer import TorrentPeer
 from torrent_peer.config_loader import TORRENT_DIR, DOWNLOAD_DIR, TRACKER_URL
 import click
@@ -104,7 +105,10 @@ async def run_background_tasks():
 @click.option("--port", "port", default=5000, help="Running port for torrent daemon (default: 5000)")
 def main(port):
     print(f"Running torrent daemon on port {port}")
-    app.run(port=port)
+    uvicorn.run(f"torrent_peer.daemon:app", 
+                port=port,
+                reload=False, 
+                workers=4)
 
 if __name__ == '__main__':
     main()
