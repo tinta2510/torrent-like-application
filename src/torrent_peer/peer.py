@@ -7,6 +7,7 @@ import asyncio
 import struct
 from uuid import uuid4
 import aiofiles
+import logging
 from tqdm.asyncio import tqdm_asyncio
 from tqdm import tqdm
 from torrent_peer.piece_manager import PieceManager
@@ -14,6 +15,8 @@ from torrent_peer.torrent_file import TorrentFile
 from torrent_peer.utils import get_unique_filename, get_local_ip
 from torrent_peer.peer_message import Handshake, Piece
 from torrent_peer.config_loader import TRACKER_URL, TORRENT_DIR, DOWNLOAD_DIR, INTERVAL
+
+logging.basicConfig(level=logging.INFO)
 
 class TorrentPeer:
     def __init__(self, port: int = None):
@@ -303,7 +306,8 @@ class TorrentPeer:
                 pbar.update(1)
                 pbar.refresh()
             
-            tqdm.write("Download successfully!")
+            logging.info("Download successfully!")
+            logging.info(f"File is saved at {piece_manager.output_name}.")
 
             writer.close()
             await writer.wait_closed()
@@ -347,7 +351,8 @@ class TorrentPeer:
             """
             Main coroutine to start the server.
             """
-            server = await asyncio.start_server(self.handle_client, "127.0.0.1", self.port)
+            server = await asyncio.start_server(self.handle_client, host='0.0.0.0', port=self.port)
+            logging.info(f"Start seeding on port {self.port}")
             addr = server.sockets[0].getsockname()
 
             async with server:

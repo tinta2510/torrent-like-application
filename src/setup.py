@@ -16,6 +16,7 @@ setup(
         "tqdm",
         "fastapi",
         "uvicorn",
+        "python-multipart"
     ],
     entry_points={
         "console_scripts": [

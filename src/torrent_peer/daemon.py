@@ -48,7 +48,7 @@ async def seed():
             name=data.get("name", ""),
             description=data.get("description", "")
         )
-        return jsonify({"message": f"Start seeding {input_path}..."}), 200
+        return jsonify({"message": f"Start seeding {input_path}"}), 200
     except FileNotFoundError as e:
         return jsonify({"error": "File not found error.",
                         "details": f"{input_path} doesn't exist"}), 400
@@ -72,7 +72,7 @@ async def leech():
     global pbar_pos
     pbar_pos += 1
     asyncio.create_task(peer.download(torrent_filepath, pbar_pos%10))
-    return jsonify({"message": "File is downloading..."}), 200
+    return jsonify({"message": "File is downloading"}), 200
 
 @app.route("/torrents", methods=["GET"])
 async def get_torrents():
@@ -105,10 +105,10 @@ async def run_background_tasks():
 @click.option("--port", "port", default=5000, help="Running port for torrent daemon (default: 5000)")
 def main(port):
     print(f"Running torrent daemon on port {port}")
-    uvicorn.run(f"torrent_peer.daemon:app", 
+    uvicorn.run(f"torrent_peer.daemon:app",
+                host="127.0.0.1", 
                 port=port,
-                reload=False, 
-                workers=4)
+                reload=False)
 
 if __name__ == '__main__':
     main()

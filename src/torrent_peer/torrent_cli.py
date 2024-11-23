@@ -96,8 +96,8 @@ def leech(port, torrent_filepath):
     payload = {"torrent_filepath": torrent_filepath}
     response = requests.post(url, json=payload, timeout=3)
     response.raise_for_status()
-    click.echo(f"{response.json()["message"]}\nGo to the torrent-daemon terminal to see details.")
-
+    click.echo(f"{response.json()["message"]} ...")
+    click.echo(f"Go to the torrent-daemon terminal to see details.")
 @click.command()
 @click.option('--port', type=int, default=PORT, help="Port number of the torrent server.")
 @handle_exceptions
