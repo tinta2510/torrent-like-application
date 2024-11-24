@@ -40,7 +40,7 @@ def handle_exceptions(func):
 @click.option('--description', default=None, help="Description of the torrent.")
 @handle_exceptions
 def seed(port, input_path, trackers, private, piece_length, torrent_filepath, name, description):
-    url = f"http://localhost:{port}/seed"
+    url = f"http://127.0.0.1:{port}/seed"
 
     payload = { "input_path": input_path }
     if trackers: payload["trackers"] = [[t.strip() for t in trackers.split(',')]]
@@ -58,7 +58,7 @@ def seed(port, input_path, trackers, private, piece_length, torrent_filepath, na
 @click.option('--port', type=int, default=PORT, help="Choost port number of torrent daemon")
 @handle_exceptions
 def get_torrent(port):
-    url = f"http://localhost:{port}/torrents"
+    url = f"http://127.0.0.1:{port}/torrents"
     # Send a GET request
     response = requests.get(url)
     response.raise_for_status()  # Raise an error for HTTP errors
@@ -92,7 +92,7 @@ def get_torrent(port):
 )
 @handle_exceptions
 def leech(port, torrent_filepath):
-    url = f"http://localhost:{port}/leech"
+    url = f"http://127.0.0.1:{port}/leech"
     payload = {"torrent_filepath": torrent_filepath}
     response = requests.post(url, json=payload, timeout=3)
     response.raise_for_status()
@@ -102,7 +102,7 @@ def leech(port, torrent_filepath):
 @click.option('--port', type=int, default=PORT, help="Port number of the torrent server.")
 @handle_exceptions
 def status(port):
-    url = f"http://localhost:{port}/status"
+    url = f"http://127.0.0.1:{port}/status"
     # Send a GET request
     response = requests.get(url)
     response.raise_for_status()  # Raise an error for HTTP errors
@@ -132,10 +132,10 @@ def test(port):
     """
     Tests a connection to the given port by sending a GET request.
     """
-    url = f"http://localhost:{port}"
+    url = f"http://127.0.0.1:{port}"
     # Send a GET request
     start = time.time()
-    response = requests.get(url)
-    print(time.time() - start)
+    response = requests.get(url, verify=False)
     response.raise_for_status()  # Raise an error for HTTP errors
     click.echo(response.json())
+    print(time.time() - start)
