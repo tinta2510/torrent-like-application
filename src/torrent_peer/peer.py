@@ -301,6 +301,8 @@ class TorrentPeer:
                 response_len = struct.unpack('>I', msg[:4])[0]
                 # Piece 
                 piece = await reader.read(response_len)
+                if not piece:
+                    raise Exception(f"Connection to {peer} closed.")
                 idx = await piece_manager.receive_piece(piece)
 
                 tqdm.write(f"Received piece with index {idx} from {peer}\n")

@@ -43,6 +43,10 @@ def get_peers(peer_dict, info_hash: str) -> List[Dict[str, str]]:
         } for peer in peer_dict.get(info_hash, [])
     ]
 
+@app.get("/")
+def get_status():
+    return {"status": "Tracker is running."}
+
 @app.get("/announce")
 async def announce(
     request: Request, 

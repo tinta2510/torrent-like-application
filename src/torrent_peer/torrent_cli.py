@@ -4,8 +4,7 @@ from tabulate import tabulate
 from InquirerPy import inquirer
 import time
 import logging
-from torrent_peer.config_loader import PORT
-from torrent_peer.daemon import app
+from torrent_peer.config_loader import PORT, TRACKER_URL
 
 logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(message)s')
 
@@ -61,7 +60,7 @@ def seed(port, input_path, trackers, private, piece_length, torrent_filepath, na
 
     response = requests.post(url, json=payload, timeout=3)
     response.raise_for_status()
-    logging.info(f"{response.json()["message"]}")
+    logging.info(f"{response.json()['message']}")
 
 @click.command()
 @click.option('--port', type=int, default=PORT, help="Choost port number of torrent daemon")
@@ -105,7 +104,7 @@ def leech(port, torrent_filepath):
     payload = {"torrent_filepath": torrent_filepath}
     response = requests.post(url, json=payload, timeout=3)
     response.raise_for_status()
-    click.echo(f"{response.json()["message"]} ...")
+    click.echo(f"{response.json()['message']} ...")
     click.echo(f"Go to the torrent-daemon terminal to see details.")
 @click.command()
 @click.option('--port', type=int, default=PORT, help="Port number of the torrent server.")
@@ -147,4 +146,10 @@ def test(port):
     response = requests.get(url, verify=False)
     response.raise_for_status()  # Raise an error for HTTP errors
     click.echo(response.json())
+
+    tracker_url = TRACKER_URL
+    response = requests.get(tracker_url, verify=False)
+    response.raise_for_status()
+    click.echo(response.json())
+
     print(time.time() - start)
