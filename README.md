@@ -11,6 +11,7 @@ This project implements a simple BitTorrent-like P2P file-sharing system (client
 ...
 
 ## Usage
+
 ### 1. Clone the Repository
 ```bash
 git clone https://github.com/tinta2510/torrent-like-application.git
@@ -21,6 +22,31 @@ Install the package and required dependencies:
 ```bash
 cd torrent-like-application/src 
 pip install .
+```
+
+***Note***: To avoid conflicts with existing packages, you can set up a virtual environment before installing a new package.
+
+1. Create a virtual environment
+```bash
+cd torrent-like-application/src 
+python -m venv env_name # Create a virtual env
+```
+2. Activate the virtual environment
+- On Windows:
+```bash
+env_name\Scripts\activate
+```
+- On macOS/Linux: 
+```bash
+source env_name/bin/activate
+```
+3. Verify the activation:
+  ```bash
+  python --version
+  ```
+4. Deactivate when done:
+```bash
+deactivate
 ```
 
 ### 3. Configure the application (optional)
@@ -50,6 +76,10 @@ torrent-daemon --help        # for user's guide
 torrent-daemon               # Running on default port 5000
 torrent-deamon --port <port> # Running torrent-daemon on specific port 
 ```
+*Note:* If it show the error below, choose another port to run (using `--port <port>`).
+```bash
+ERROR: [Errno 10048] error while attempting to bind on address ('127.0.0.1', 5000): only one usage of each socket address (protocol/network address/port) is normally permitted
+```
 
 ### 6. Torrent CLI
 - To send command to the `torrent-daemon`. Using these torrent command.
@@ -65,8 +95,8 @@ torrent-test --port <port>
 torrent-seed --help # for more user's guide
 torrent-seed --input <filepath>
 ```
-1. `torrent-fetch`: fetch torrent files from tracker.
-2. `torrent-leech`: leech a file.
+3. `torrent-fetch`: fetch torrent files from tracker.
+4. `torrent-leech`: leech a file.
 - `--torrent`: filepath to the torrent file.
 ```bash
 torrent-leech --torrent <filepath>

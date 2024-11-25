@@ -10,6 +10,14 @@ import click
 os.makedirs(TORRENT_DIR, exist_ok=True)
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
+logging.basicConfig(
+    level=logging.INFO,  # Set global logging level
+    format='[%(levelname)s]    %(message)s',
+    handlers=[
+        logging.StreamHandler(),  # Log to console
+    ]
+)
+
 app = Quart(__name__)
 peer = TorrentPeer(randint(1025, 60000))
 pbar_pos = -1

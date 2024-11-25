@@ -16,7 +16,7 @@ from torrent_peer.utils import get_unique_filename, get_local_ip
 from torrent_peer.peer_message import Handshake, Piece
 from torrent_peer.config_loader import TRACKER_URL, TORRENT_DIR, DOWNLOAD_DIR, INTERVAL
 
-logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 class TorrentPeer:
     def __init__(self, port: int = None):
@@ -52,7 +52,8 @@ class TorrentPeer:
             response.raise_for_status()  # Raise error if status is not 200
             return response
         except requests.exceptions.RequestException as e:
-            tqdm.write(f"Error connecting to tracker.\nError: {e}")
+            raise requests.exceptions.RequestException(f"Error connecting to tracker.\nError: {e}")
+        except Exception as e:
             raise Exception(e)
         
     ##### For seeding - BEGIN #####
@@ -76,7 +77,8 @@ class TorrentPeer:
                 response.raise_for_status()
                 return response   
             except requests.exceptions.RequestException as e:
-                tqdm.write(f"Error connecting to tracker.\nError: {e}")
+                raise requests.exceptions.RequestException(f"Error connecting to tracker.\nError: {e}")
+            except Exception as e:
                 raise Exception(e)
 
     def seed(self, input_path: str, 
@@ -159,11 +161,10 @@ class TorrentPeer:
             writer.close()
             await writer.wait_closed()            
         except Exception as e:
-            tqdm.write(f"Error caught in handle_client {addr}: {e}")
+            raise Exception(f"Error caught in handle_client {addr}: {e}")
         finally:
-            tqdm.write(f"Closed connection to {addr}")
+            logger.info(f"Closed connection to {addr}")
                 
-
     async def get_piece_for_seeding(self, 
                               curr_torrent: TorrentFile, 
                               curr_torrent_metadata: Dict[str, Any], 
@@ -306,19 +307,19 @@ class TorrentPeer:
                 pbar.update(1)
                 pbar.refresh()
             
-            logging.info("Download successfully!")
-            logging.info(f"File is saved at {piece_manager.output_name}.")
+            logger.info("Download successfully!")
+            logger.info(f"File is saved at {piece_manager.output_name}.")
 
             writer.close()
             await writer.wait_closed()
         except asyncio.TimeoutError:
-            tqdm.write(f"Connection to {peer} attempt timed out.")
+            logger.error(f"Connection to {peer} attempt timed out.")
         except ConnectionRefusedError:
-            tqdm.write(f"Connection to {peer} was refused by the peer.")
+            logger.error(f"Connection to {peer} was refused by the peer.")
         except asyncio.IncompleteReadError:
-            tqdm.write(f"Failed to read data from the peer {peer}.")
+            logger.error(f"Failed to read data from the peer {peer}.")
         except Exception as e:
-            tqdm.write(f"An unexpected error occurred at download_from_peer: {e}")
+            logger.error(f"An unexpected error occurred at download_from_peer: {e}")
         finally:
             if peer in piece_manager.active_peers:
                 piece_manager.active_peers.remove(peer)
@@ -352,7 +353,7 @@ class TorrentPeer:
             Main coroutine to start the server.
             """
             server = await asyncio.start_server(self.handle_client, host='0.0.0.0', port=self.port)
-            logging.info(f"Start seeding on port {self.port}")
+            logger.info(f"Start seeding on port {self.port}")
             addr = server.sockets[0].getsockname()
 
             async with server:

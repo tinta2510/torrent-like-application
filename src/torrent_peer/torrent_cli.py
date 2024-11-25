@@ -3,9 +3,11 @@ import requests
 from tabulate import tabulate
 from InquirerPy import inquirer
 import time
+import logging
 from torrent_peer.config_loader import PORT
 from torrent_peer.daemon import app
 
+logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(message)s')
 
 def handle_exceptions(func):
     """
@@ -15,11 +17,18 @@ def handle_exceptions(func):
         try:
             return func(*args, **kwargs)
         except requests.exceptions.ConnectionError:
-            click.echo("[ERROR] Cannot connect to torrent-daemon. Run torrent-daemon and verify port number.")
+            logging.error("Cannot connect to torrent-daemon.")
+            print("     Try running torrent-daemon and choosing the correct port number (using --port).")
         except requests.exceptions.Timeout:
-            click.echo("[ERROR] The request timed out. Verify torrent-daemon is running and try again.")
+            logging.error("The request timed out. Verify torrent-daemon is running and try again.")
+        except requests.exceptions.HTTPError as http_err:
+            # Catch HTTP errors
+            logging.error(f"HTTP error occurred: {http_err}")
+        except requests.exceptions.RequestException as req_err:
+            # Catch non-HTTP errors like connection problems
+            print(f"Other request error occurred: {req_err}")
         except Exception as err:
-            click.echo(f"An error occurred: {err}")
+            logging.error(f"An error occurred: {err}")
     return wrapper
 
 @click.command()
@@ -52,7 +61,7 @@ def seed(port, input_path, trackers, private, piece_length, torrent_filepath, na
 
     response = requests.post(url, json=payload, timeout=3)
     response.raise_for_status()
-    click.echo(f"{response.json()["message"]}")
+    logging.info(f"{response.json()["message"]}")
 
 @click.command()
 @click.option('--port', type=int, default=PORT, help="Choost port number of torrent daemon")
@@ -74,12 +83,12 @@ def get_torrent(port):
         default=list(data.keys())[0],
     ).execute()
 
-    click.echo(f"Selected file: {info_hash}")
+    logging.info(f"Selected file: {info_hash}")
 
     response = requests.get(url + "/" + info_hash)
     data = response.json()["data"]
     response.raise_for_status()
-    click.echo(f"Download torrent file {info_hash} successfully.\nFilepath: {data}")
+    logging.info(f"Download torrent file {info_hash} successfully.\nFilepath: {data}")
 
 @click.command()
 @click.option('--port', type=int, default=PORT, help="Port number of the torrent server.")
