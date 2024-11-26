@@ -48,7 +48,7 @@ class TorrentPeer:
         if event is not None:
             params["event"] = event
         try:
-            response = requests.get(tracker_url + "/announce", params=params, timeout=10)
+            response = requests.get(tracker_url + "/announce", params=params, timeout=30)
             response.raise_for_status()  # Raise error if status is not 200
             return response
         except requests.exceptions.RequestException as e:
@@ -73,7 +73,7 @@ class TorrentPeer:
                 "event": "started"
             }
             try:
-                response = requests.post(tracker_url + "/announce", files=files, data=data, params=params, timeout=10)
+                response = requests.post(tracker_url + "/announce", files=files, data=data, params=params, timeout=30)
                 response.raise_for_status()
                 return response   
             except requests.exceptions.RequestException as e:
@@ -114,6 +114,30 @@ class TorrentPeer:
                 self._upload_torrent_to_tracker(name, description, torrent.filepath)
             else:
                 self._send_request_to_tracker(torrent.filepath, "started")
+        except FileNotFoundError as e:
+            raise FileNotFoundError(e)
+        except Exception as e:
+            raise Exception("Exception appeared when seeding: ", e) from e
+        
+    def _seed_after_downloading(self, 
+                                input_path: str, 
+                                input_torrent_filepath: str):
+        try:
+            if not os.path.exists(input_path): 
+                raise FileNotFoundError(input_path, "does not exists.")
+            
+            if not os.path.exists(input_torrent_filepath):
+                raise FileNotFoundError(input_torrent_filepath, "does not exists.")
+            
+            torrent = TorrentFile(input_torrent_filepath)
+
+            # Add to list of active torrents
+            self.seeding_torrents[torrent.info_hash] = {
+                "torrent_filepath": torrent.filepath,
+                "filepath": input_path
+            }
+
+            self._send_request_to_tracker(torrent.filepath, "started")
         except FileNotFoundError as e:
             raise FileNotFoundError(e)
         except Exception as e:
@@ -311,7 +335,11 @@ class TorrentPeer:
             
             logger.info("Download successfully!")
             logger.info(f"File is saved at {piece_manager.output_name}.")
-
+            # Start seeding file after downloading successfully.
+            self._seed_after_downloading(
+                input_path=piece_manager.output_name,
+                input_torrent_filepath=piece_manager.torrent.filepath) 
+            logger.info(f"Start seeding file after downloading successfully.")
             writer.close()
             await writer.wait_closed()
         except asyncio.TimeoutError:
@@ -323,7 +351,7 @@ class TorrentPeer:
         except Exception as e:
             logger.error(f"An unexpected error occurred at download_from_peer: {e}")
         finally:
-            if peer in piece_manager.active_peers:
+            if not piece_manager and peer in piece_manager.active_peers:
                 piece_manager.active_peers.remove(peer)
             
 
