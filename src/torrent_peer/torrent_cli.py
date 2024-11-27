@@ -76,11 +76,14 @@ def get_torrent(port):
     rows = [[key, value["name"], value["description"]] for key, value in data.items()]
     click.echo(tabulate(rows, headers=["info_hash", "Name", "Description"], tablefmt="grid"))
 
-    info_hash = inquirer.select(
+    choices = [(key[:5]+' - '+value["name"], key) for key, value in data.items()]
+    selected_file = inquirer.select(
         message="Select a torrent file to download:",
-        choices= data.keys(),
-        default=list(data.keys())[0],
+        choices= [choice[0] for choice in choices],
+        default= choices[0][0],
     ).execute()
+
+    info_hash = next(key for label, key in choices if label == selected_file)
 
     logging.info(f"Selected file: {info_hash}")
 
