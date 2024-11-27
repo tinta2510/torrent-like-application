@@ -8,6 +8,7 @@ import struct
 from uuid import uuid4
 import aiofiles
 import logging
+import traceback
 from tqdm.asyncio import tqdm_asyncio
 from tqdm import tqdm
 from torrent_peer.piece_manager import PieceManager
@@ -52,9 +53,11 @@ class TorrentPeer:
             response.raise_for_status()  # Raise error if status is not 200
             return response
         except requests.exceptions.RequestException as e:
-            raise requests.exceptions.RequestException(f"Error connecting to tracker.\nError: {e}")
+            logger.info(f"Error connecting to tracker.\nError: {str(e)}")
+            raise 
         except Exception as e:
-            raise Exception(e)
+            logger.error(f"Error occurs in _send_request_to_tracker: {str(e)}")
+            raise
         
     ##### For seeding - BEGIN #####
     def _upload_torrent_to_tracker(self, name: str, description: str, torrent_filepath: str):
@@ -77,9 +80,11 @@ class TorrentPeer:
                 response.raise_for_status()
                 return response   
             except requests.exceptions.RequestException as e:
-                raise requests.exceptions.RequestException(f"Error connecting to tracker.\nError: {e}")
+                logger.info(f"Error connecting to tracker.\nError: {str(e)}")
+                raise 
             except Exception as e:
-                raise Exception(e)
+                logger.error(f"Error occurs in _send_request_to_tracker: {str(e)}")
+                raise
 
     def seed(self, input_path: str, 
                    trackers: List[List[str]], 
@@ -115,9 +120,11 @@ class TorrentPeer:
             else:
                 self._send_request_to_tracker(torrent.filepath, "started")
         except FileNotFoundError as e:
-            raise FileNotFoundError(e)
+            logger.error(f"FileNotFoundError occurs in seed: {str(e)}")
+            raise 
         except Exception as e:
-            raise Exception("Exception appeared when seeding: ", e) from e
+            logger.error(f"Error occurs in seed: {str(e)}")
+            raise 
         
     def _seed_after_downloading(self, 
                                 input_path: str, 
@@ -139,14 +146,16 @@ class TorrentPeer:
 
             self._send_request_to_tracker(torrent.filepath, "started")
         except FileNotFoundError as e:
-            raise FileNotFoundError(e)
+            logger.error(f"FileNotFoundError occurs in seed: {str(e)}")
+            raise 
         except Exception as e:
-            raise Exception("Exception appeared when seeding: ", e) from e
+            logger.error(f"Error occurs in seed: {str(e)}")
+            raise 
 
     async def handle_client(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
         addr = writer.get_extra_info('peername')
         try: 
-            request = await reader.read(68)
+            request = await asyncio.wait_for(reader.read(68), timeout=10)
             if not request:
                 raise Exception(f"Connection to client {addr} closed!") 
 
@@ -168,24 +177,23 @@ class TorrentPeer:
 
             # Listening for request after handshaking
             while True:
-                msg = await reader.read(4)
+                msg = await asyncio.wait_for(reader.read(4), timeout=10)
                 if not msg:
                     break  
-
                 request_length = struct.unpack('>I', msg)[0]
-                msg = await reader.read(request_length)
+                msg = await asyncio.wait_for(reader.read(request_length), timeout=10)
                 (id, index, begin, length) = struct.unpack('>bIII', msg)
-                
                 piece = await self.get_piece_for_seeding(curr_torrent, curr_torrent_metadata, index, length)
                 piece_msg = Piece(index, begin, piece).encode()
-                tqdm.write(f"Send PIECE with index {index} to peer {addr}")
                 writer.write(piece_msg)
                 await writer.drain()    
+                tqdm.write(f"Sent PIECE with index {index} to peer {addr}")
 
             writer.close()
             await writer.wait_closed()            
         except Exception as e:
-            raise Exception(f"Error caught in handle_client {addr}: {e}")
+            logger.info(f"Error caught in handle_client {addr}: {e}")
+            raise 
         finally:
             logger.info(f"Closed connection to {addr}")
                 
@@ -298,13 +306,12 @@ class TorrentPeer:
             piece_manager.active_peers.append(peer)
             # Create handshake msg
             handshake_msg = Handshake(torrent.info_hash).encode()
-
             # Send handshake msg
             writer.write(handshake_msg)
             await writer.drain()
 
             # Wait for Handshake response from peer
-            response = await reader.read(68)
+            response = await asyncio.wait_for(reader.read(68), timeout=10)
             if not response:
                 raise Exception(f"Connection to {peer} closed.")
             if not Handshake.is_valid(response):
@@ -313,35 +320,34 @@ class TorrentPeer:
             # Start requesting
             while not piece_manager.completed:
                 request_msg = piece_manager.get_request_msg()
+                if request_msg is None:
+                    logger.info(f"No more pieces to request from {peer}.")
+                    break
                 # Send request
                 writer.write(request_msg)
                 await writer.drain()
                 # Response length
-                msg = await reader.read(4)
+                msg = await asyncio.wait_for(reader.read(4), timeout=10)
                 if not msg:
                     raise Exception(f"Connection to {peer} closed.")
                 # ### Check if fail -> mark pending_pieces
 
                 response_len = struct.unpack('>I', msg[:4])[0]
                 # Piece 
-                piece = await reader.read(response_len)
+                piece = await asyncio.wait_for(reader.read(response_len), timeout=10)
                 if not piece:
                     raise Exception(f"Connection to {peer} closed.")
                 idx = await piece_manager.receive_piece(piece)
-
-                tqdm.write(f"Received piece with index {idx} from {peer}\n")
-                pbar.update(1)
-                pbar.refresh()
-            
-            logger.info("Download successfully!")
-            logger.info(f"File is saved at {piece_manager.output_name}.")
-            # Start seeding file after downloading successfully.
-            self._seed_after_downloading(
-                input_path=piece_manager.output_name,
-                input_torrent_filepath=piece_manager.torrent.filepath) 
-            logger.info(f"Start seeding file after downloading successfully.")
+                if idx:
+                    tqdm.write(f"Received piece with index {idx} from {peer}\n")
+                    pbar.update(1)
+                    pbar.refresh()
+                
             writer.close()
             await writer.wait_closed()
+        except asyncio.CancelledError as e:
+            logger.warning(f"Task was cancelled.")
+            raise  
         except asyncio.TimeoutError:
             logger.error(f"Connection to {peer} attempt timed out.")
         except ConnectionRefusedError:
@@ -351,7 +357,7 @@ class TorrentPeer:
         except Exception as e:
             logger.error(f"An unexpected error occurred at download_from_peer: {e}")
         finally:
-            if not piece_manager and peer in piece_manager.active_peers:
+            if piece_manager and (peer in piece_manager.active_peers):
                 piece_manager.active_peers.remove(peer)
             
 
@@ -374,6 +380,14 @@ class TorrentPeer:
                         if peer not in piece_manager.active_peers:
                             asyncio.create_task(self.download_from_peer(piece_manager, torrent, peer, pbar))
                     await asyncio.sleep(INTERVAL)
+
+                logger.info("Download successfully!")
+                logger.info(f"File is saved at {piece_manager.output_name}.")
+                # Start seeding file after downloading successfully.
+                self._seed_after_downloading(
+                    input_path = piece_manager.output_name,
+                    input_torrent_filepath = piece_manager.torrent.filepath) 
+                logger.info(f"Start seeding file after downloading successfully.")
             except Exception as e:
                 tqdm.write(f"Exception occured at download function: {e}")
 

@@ -17,6 +17,10 @@ PEER_FILE = os.path.join(CURRENT_DIR, config["tracker"]["PEER_FILE"])
 TORRENT_FILE = os.path.join(CURRENT_DIR, config["tracker"]["TORRENT_FILE"])
 os.makedirs(TORRENT_DIR, exist_ok=True)
 
+if (not os.path.exists(TORRENT_FILE)):
+    with open(TORRENT_FILE, "w") as file:
+        json.dump({}, file)
+
 with open(PEER_FILE, "w") as file:
     json.dump({}, file)
 

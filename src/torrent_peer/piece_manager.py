@@ -54,15 +54,17 @@ class PieceManager:
         piece_length = self.torrent.piece_length
         length = self.total_length if self.haveMultiFile \
                 else self.torrent.torrent_data[b"info"][b"length"]
-
-        for i, value in enumerate(self.pieces_status):
-            if value == PieceStatus.EMPTY:
-                self.pieces_status[i] = PieceStatus.PENDING
-                if i == self.torrent.number_of_pieces - 1:
-                    requested_length = length % piece_length  
+        # Request for EMPTY Piece first before requesting for PENDING Piece
+        for status in (PieceStatus.EMPTY, PieceStatus.PENDING):
+            for i, value in enumerate(self.pieces_status):
+                if value == status:
+                    self.pieces_status[i] = PieceStatus.PENDING
+                    requested_length = length % piece_length \
+                                        if i == self.torrent.number_of_pieces - 1 \
+                                        else piece_length
                     return Request(i, 0, requested_length).encode()
-                return Request(i, 0, piece_length).encode()
-            
+        return None
+    
     def validate_received_piece(self, piece_data, index):
         expected_hash = self.torrent.torrent_data[b"info"][b"pieces"][index*20:index*20 + 20]
         hashed_data = hashlib.sha1(piece_data).digest() 
@@ -101,10 +103,11 @@ class PieceManager:
         if (id != PeerMessage.Piece):
             raise Exception("Not a valid Piece!")
         if not self.validate_received_piece(data, index):
-            raise Exception("Not expected piece.")
+            raise Exception(f"Received piece is not a valid piece {index}")
+        if self.pieces_status[index] == PieceStatus.DOWNLOADED:
+            return None
         
         await self.write_piece_to_file(index, data)    
-
         self.pieces_status[index] = PieceStatus.DOWNLOADED
         self.completed = all([x == PieceStatus.DOWNLOADED for x in self.pieces_status])
  
