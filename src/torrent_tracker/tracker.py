@@ -123,7 +123,7 @@ async def insert_torrent(
             json.dump(data, f, indent=4)
 
     return RedirectResponse(
-        url=f"/announce?info_hash={info_hash}&port={port}&{"ip=" + ip + "&" if ip else ""}event=started", 
+        url=f"/announce?info_hash={info_hash}&port={port}&{'ip=' + ip + '&' if ip else ''}event=started", 
         status_code=302
     )
 
