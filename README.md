@@ -2,13 +2,20 @@
 ## Overview
 This project implements a simple BitTorrent-like P2P file-sharing system (clients and tracker). 
 
-## Features
+## Functionalities
 ### Tracker
+- Peer List Management.
+- Meta-info File Storage.
+
 
 ### Peer
-- **Torrent File Creation and Parsing:** Generate a `.torrent` file for a single file or a directory and read infomation in a `.torrent` file. 
-
-...
+- Uploading (Seeding) multi-file torrents.
+- Downloading (Leeching) multi-file torrents.
+- Downloading and uploading multiple torrents simultaneously.
+- Piece Management.
+- Piece Validation.
+- Get uploading and downloading status.
+- Seeding after having downloaded.
 
 ## Usage
 
